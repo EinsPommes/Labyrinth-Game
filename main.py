@@ -14,10 +14,8 @@ SCREEN_HEIGHT = TILE_SIZE * VIEWPORT_HEIGHT
 
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
-GREEN = (0, 255, 0)
 
 player_pos = [1, 1]
-player_color = GREEN
 
 GPIO.setmode(GPIO.BCM)
 UP_PIN = 17
@@ -34,6 +32,9 @@ pygame.init()
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption('Labyrinth with Letters')
 clock = pygame.time.Clock()
+
+player_image = pygame.image.load('player.png')
+player_image = pygame.transform.scale(player_image, (TILE_SIZE, TILE_SIZE))
 
 def generate_maze(width, height):
     maze = [[1 for _ in range(width)] for _ in range(height)]
@@ -84,6 +85,7 @@ while running:
     elapsed_time = time.time() - start_time
     if elapsed_time >= timer_duration:
         running = False
+        print("Time's up! You ran out of time.")
 
     viewport_x = max(0, min(player_pos[0] - VIEWPORT_WIDTH // 2, MAZE_WIDTH - VIEWPORT_WIDTH))
     viewport_y = max(0, min(player_pos[1] - VIEWPORT_HEIGHT // 2, MAZE_HEIGHT - VIEWPORT_HEIGHT))
@@ -106,7 +108,7 @@ while running:
 
     screen_x = (player_pos[0] - viewport_x) * TILE_SIZE
     screen_y = (player_pos[1] - viewport_y) * TILE_SIZE
-    pygame.draw.rect(screen, player_color, (screen_x, screen_y, TILE_SIZE, TILE_SIZE))
+    screen.blit(player_image, (screen_x, screen_y))
 
     for event in pygame.event.get():
         if event.type == QUIT:
@@ -126,6 +128,15 @@ while running:
     for letter in letters[:]:
         if player_pos[0] == letter[0] and player_pos[1] == letter[1]:
             letters.remove(letter)
+
+    if not letters:
+        running = False
+        print("Congratulations! You collected all the letters and won the game!")
+        screen.fill(WHITE)
+        end_text = font.render(f"You collected: {word}", True, BLACK)
+        screen.blit(end_text, (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 2))
+        pygame.display.flip()
+        time.sleep(5)
 
     pygame.display.flip()
     clock.tick(10)
