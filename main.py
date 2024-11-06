@@ -14,8 +14,11 @@ SCREEN_HEIGHT = TILE_SIZE * VIEWPORT_HEIGHT
 
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
+RED = (255, 0, 0)
+GREEN = (0, 255, 0)
 
 player_pos = [1, 1]
+player_lives = 3
 
 GPIO.setmode(GPIO.BCM)
 UP_PIN = 17
@@ -36,6 +39,35 @@ clock = pygame.time.Clock()
 player_image = pygame.image.load('player.png')
 player_image = pygame.transform.scale(player_image, (TILE_SIZE, TILE_SIZE))
 
+boss_image = pygame.image.load('boss.png')
+boss_image = pygame.transform.scale(boss_image, (TILE_SIZE, TILE_SIZE))
+boss_pos = [MAZE_WIDTH - 2, MAZE_HEIGHT - 2]
+
+# Anzeige der Anleitung vor Spielbeginn
+def display_instructions():
+    screen.fill(WHITE)
+    font = pygame.font.Font(None, 36)
+    instructions = [
+        "Welcome to the Labyrinth Game!",
+        "Collect all the letters to form the name of the headquarters of Weidmüller.",
+        "Avoid the boss, who will try to stop you!",
+        "Stay on a letter for a moment to collect it.",
+        "You have 3 lives. Use the joystick to move around.",
+        "Press any button to start the game."
+    ]
+    y_offset = 100
+    for line in instructions:
+        text = font.render(line, True, BLACK)
+        screen.blit(text, (SCREEN_WIDTH // 8, y_offset))
+        y_offset += 50
+    pygame.display.flip()
+    waiting = True
+    while waiting:
+        for event in pygame.event.get():
+            if event.type == KEYDOWN or event.type == MOUSEBUTTONDOWN:
+                waiting = False
+
+# Generiere das Labyrinth
 def generate_maze(width, height):
     maze = [[1 for _ in range(width)] for _ in range(height)]
     stack = [(1, 1)]
@@ -65,20 +97,23 @@ def generate_maze(width, height):
 maze = generate_maze(MAZE_WIDTH, MAZE_HEIGHT)
 maze[player_pos[1]][player_pos[0]] = 0
 
-word = "WEITMÜLLER"
 letters = []
-for char in word:
+for _ in range(20):
     while True:
         x = random.randint(1, MAZE_WIDTH - 2)
         y = random.randint(1, MAZE_HEIGHT - 2)
         if maze[y][x] == 0 and not any(l[0] == x and l[1] == y for l in letters):
-            letters.append((x, y, char))
+            letters.append((x, y, random.choice("WEIDMUELLER")))
             break
 
 start_time = time.time()
 timer_duration = 10 * 60
 
+# Anzeige der Anleitung vor Spielbeginn
+display_instructions()
+
 running = True
+collect_timer = 0
 while running:
     screen.fill(WHITE)
 
@@ -110,6 +145,13 @@ while running:
     screen_y = (player_pos[1] - viewport_y) * TILE_SIZE
     screen.blit(player_image, (screen_x, screen_y))
 
+    boss_screen_x = (boss_pos[0] - viewport_x) * TILE_SIZE
+    boss_screen_y = (boss_pos[1] - viewport_y) * TILE_SIZE
+    screen.blit(boss_image, (boss_screen_x, boss_screen_y))
+
+    lives_text = font.render(f"Lives: {player_lives}", True, GREEN)
+    screen.blit(lives_text, (10, 10))
+
     for event in pygame.event.get():
         if event.type == QUIT:
             running = False
@@ -127,13 +169,32 @@ while running:
 
     for letter in letters[:]:
         if player_pos[0] == letter[0] and player_pos[1] == letter[1]:
-            letters.remove(letter)
+            if collect_timer == 0:
+                collect_timer = time.time()
+            elif time.time() - collect_timer > 1:  # Sammle Buchstaben, wenn der Spieler länger als 1 Sekunde darauf steht
+                letters.remove(letter)
+                collect_timer = 0
+        else:
+            collect_timer = 0
+
+    if player_pos == boss_pos:
+        player_lives -= 1
+        if player_lives == 0:
+            running = False
+            print("You were caught by the boss! Game over.")
+            screen.fill(WHITE)
+            end_text = font.render("You were caught by the boss!", True, RED)
+            screen.blit(end_text, (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 2))
+            pygame.display.flip()
+            time.sleep(5)
+        else:
+            player_pos = [1, 1]
 
     if not letters:
         running = False
         print("Congratulations! You collected all the letters and won the game!")
         screen.fill(WHITE)
-        end_text = font.render(f"You collected: {word}", True, BLACK)
+        end_text = font.render(f"You collected: Weidmüller Headquarters", True, BLACK)
         screen.blit(end_text, (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 2))
         pygame.display.flip()
         time.sleep(5)
