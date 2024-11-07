@@ -1,63 +1,212 @@
 import pygame
 import random
-import RPi.GPIO as GPIO
 import time
 from pygame.locals import *
+import os
+from pyPS4Controller.controller import Controller
 
 TILE_SIZE = 40
-MAZE_WIDTH = 15
-MAZE_HEIGHT = 10
-VIEWPORT_WIDTH = 10
-VIEWPORT_HEIGHT = 6
-SCREEN_WIDTH = TILE_SIZE * VIEWPORT_WIDTH
-SCREEN_HEIGHT = TILE_SIZE * VIEWPORT_HEIGHT
+MAZE_WIDTH = 30
+MAZE_HEIGHT = 30
+VIEWPORT_WIDTH = 20
+VIEWPORT_HEIGHT = 15
+SCREEN_WIDTH = 800  # Raspberry Pi Touchscreen Breite
+SCREEN_HEIGHT = 480  # Raspberry Pi Touchscreen Höhe
 
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 RED = (255, 0, 0)
 GREEN = (0, 255, 0)
+ORANGE = (255, 165, 0)
 
 player_pos = [1, 1]
 player_lives = 3
-
-GPIO.setmode(GPIO.BCM)
-UP_PIN = 17
-DOWN_PIN = 18
-LEFT_PIN = 27
-RIGHT_PIN = 22
-
-GPIO.setup(UP_PIN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-GPIO.setup(DOWN_PIN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-GPIO.setup(LEFT_PIN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-GPIO.setup(RIGHT_PIN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+shield_active = False
+shield_timer = 0
+shield_cooldown = 20
+shield_duration = 10
+shield_symbol = "U-Stahl"
+boost_active = False
+boost_timer = 0
 
 pygame.init()
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption('Labyrinth with Letters')
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.FULLSCREEN)
+pygame.display.set_caption('Labyrinth with Letters (Raspberry Pi Touchscreen Edition)')
 clock = pygame.time.Clock()
 
-player_image = pygame.image.load('player.png')
-player_image = pygame.transform.scale(player_image, (TILE_SIZE, TILE_SIZE))
+player_images = [
+    pygame.transform.scale(pygame.image.load(os.path.join('assets', f'player_{i}.png')), (TILE_SIZE, TILE_SIZE)) for i in range(1, 4)
+]
 
-boss_image = pygame.image.load('boss.png')
-boss_image = pygame.transform.scale(boss_image, (TILE_SIZE, TILE_SIZE))
-boss_pos = [MAZE_WIDTH - 2, MAZE_HEIGHT - 2]
+class MyController(Controller):
+    def __init__(self, **kwargs):
+        Controller.__init__(self, **kwargs)
 
-# Anzeige der Anleitung vor Spielbeginn
-def display_instructions():
-    screen.fill(WHITE)
+    # Kreuz (X): Buchstaben einsammeln
+    def on_x_press(self):
+        global letters, player_pos
+        for letter in letters[:]:
+            if player_pos[0] == letter[0] and player_pos[1] == letter[1]:
+                letters.remove(letter)
+                print("Buchstabe eingesammelt!")
+
+    # Kreis (O): Boost aktivieren
+    def on_circle_press(self):
+        global boost_active, boost_timer
+        if not boost_active:
+            boost_active = True
+            boost_timer = time.time()
+            print("Boost aktiviert!")
+
+    # Dreieck (Δ): Schutzschild aktivieren
+    def on_triangle_press(self):
+        global shield_active, shield_timer
+        if not shield_active:
+            shield_active = True
+            shield_timer = time.time()
+            print("Schutzschild aktiviert!")
+
+    # Quadrat (□): Anweisungen anzeigen
+    def on_square_press(self):
+        display_instructions()
+
+    def on_L3_up(self, value):
+        global player_pos, maze
+        if value < -10000 and player_pos[1] > 0 and maze[player_pos[1] - 1][player_pos[0]] == 0:
+            player_pos[1] -= 1
+
+    def on_L3_down(self, value):
+        global player_pos, maze
+        if value > 10000 and player_pos[1] < MAZE_HEIGHT - 1 and maze[player_pos[1] + 1][player_pos[0]] == 0:
+            player_pos[1] += 1
+
+    def on_L3_left(self, value):
+        global player_pos, maze
+        if value < -10000 and player_pos[0] > 0 and maze[player_pos[1]][player_pos[0] - 1] == 0:
+            player_pos[0] -= 1
+
+    def on_L3_right(self, value):
+        global player_pos, maze
+        if value > 10000 and player_pos[0] < MAZE_WIDTH - 1 and maze[player_pos[1]][player_pos[0] + 1] == 0:
+            player_pos[0] += 1
+
+controller = MyController(interface="/dev/input/js0", connecting_using_ds4drv=False)
+controller_thread = controller.start()
+
+# Auswahlmenü für Charaktere
+def character_selection():
+    screen.fill(BLACK)
     font = pygame.font.Font(None, 36)
     instructions = [
-        "Welcome to the Labyrinth Game!",
-        "Collect all the letters to form the name of the headquarters of Weidmüller.",
-        "Avoid the boss, who will try to stop you!",
-        "Stay on a letter for a moment to collect it.",
-        "You have 3 lives. Use the joystick to move around.",
-        "Press any button to start the game."
+        "Wähle deinen Charakter aus:",
+        "1: Charakter 1",
+        "2: Charakter 2",
+        "3: Charakter 3"
     ]
     y_offset = 100
     for line in instructions:
-        text = font.render(line, True, BLACK)
+        text = font.render(line, True, WHITE)
+        screen.blit(text, (SCREEN_WIDTH // 8, y_offset))
+        y_offset += 50
+    pygame.display.flip()
+    waiting = True
+    selected_character = None
+    while waiting:
+        for event in pygame.event.get():
+            if event.type == KEYDOWN:
+                if event.key == K_1:
+                    selected_character = 0
+                    waiting = False
+                elif event.key == K_2:
+                    selected_character = 1
+                    waiting = False
+                elif event.key == K_3:
+                    selected_character = 2
+                    waiting = False
+    return selected_character
+
+player_image = player_images[character_selection()]
+
+# Auswahlmenü für Bosse
+def boss_selection():
+    screen.fill(BLACK)
+    font = pygame.font.Font(None, 36)
+    instructions = [
+        "Wähle deinen Boss aus:",
+        "1: Tom",
+        "2: Jannik",
+        "3: Phillip"
+    ]
+    y_offset = 100
+    for line in instructions:
+        text = font.render(line, True, WHITE)
+        screen.blit(text, (SCREEN_WIDTH // 8, y_offset))
+        y_offset += 50
+    pygame.display.flip()
+    waiting = True
+    selected_boss = None
+    while waiting:
+        for event in pygame.event.get():
+            if event.type == KEYDOWN:
+                if event.key == K_1:
+                    selected_boss = 0
+                    waiting = False
+                elif event.key == K_2:
+                    selected_boss = 1
+                    waiting = False
+                elif event.key == K_3:
+                    selected_boss = 2
+                    waiting = False
+    return selected_boss
+
+selected_boss_index = boss_selection()
+
+# Boss Bilder
+boss_images = [
+    pygame.transform.scale(pygame.image.load(os.path.join('assets', f'boss_{i}.png')), (TILE_SIZE, TILE_SIZE)) for i in range(1, 5)
+]
+
+# Fähigkeiten Bilder für jeden Boss
+boss_abilities_images = [
+    [
+        pygame.transform.scale(pygame.image.load(os.path.join('assets', f'boss_{i}_ability_{j}.png')), (TILE_SIZE, TILE_SIZE)) for j in range(1, 3)  # Zwei Fähigkeiten pro Boss
+    ] for i in range(1, 5)
+]
+
+# Eigenschaften der Bosse
+boss_attributes = [
+    {"name": "Tom", "ability": "teleport", "description": "Teleportiert sich und hinterlässt Rauch", "damage": 1, "speed": 1, "abilities": ["ability_1", "ability_2"]},
+    {"name": "Jannik", "ability": "shoot_fibis", "description": "Schießt wütende Fibis", "damage": 1, "speed": 1.5, "abilities": ["ability_1", "ability_2"]},
+    {"name": "Phillip", "ability": "long_range_attack", "description": "Besitzt eine große Angriffsreichweite", "damage": 2, "speed": 1.2, "abilities": ["ability_1", "ability_2"]},
+    {"name": "Louis (Endboss)", "ability": "shoot_u_stahl", "description": "Schießt U-Stahl, der 3 Leben abzieht", "damage": 3, "speed": 2, "abilities": ["ability_1", "ability_2"]}
+]
+
+selected_boss = boss_attributes[selected_boss_index]
+louis = boss_attributes[3]
+
+# Position des gewählten Bosses
+boss_positions = [[random.randint(1, MAZE_WIDTH - 2), random.randint(1, MAZE_HEIGHT - 2)]]
+louis_spawned = False
+
+# Anzeige der Anleitung vor Spielbeginn
+def display_instructions():
+    screen.fill(BLACK)
+    font = pygame.font.Font(None, 36)
+    instructions = [
+        "Willkommen im Labyrinth-Spiel!",
+        "Verwende den PS4-Controller mit folgenden Tasten:",
+        "Kreuz (X): Buchstaben einsammeln",
+        "Kreis (O): Boost aktivieren",
+        "Dreieck (Δ): Schutzschild aktivieren",
+        "Quadrat (□): Anweisungen anzeigen",
+        "Sammle alle Buchstaben, um den Namen des Hauptsitzes von Weidmüller zu bilden.",
+        "Vermeide die Bosse, die versuchen, dich aufzuhalten!",
+        "Benutze den PS4-Controller, um dich zu bewegen.",
+        "Du hast 3 Leben. Drücke einen beliebigen Knopf, um das Spiel zu starten."
+    ]
+    y_offset = 100
+    for line in instructions:
+        text = font.render(line, True, WHITE)
         screen.blit(text, (SCREEN_WIDTH // 8, y_offset))
         y_offset += 50
     pygame.display.flip()
@@ -107,20 +256,33 @@ for _ in range(20):
             break
 
 start_time = time.time()
-timer_duration = 10 * 60
+timer_duration = 15 * 60
 
-# Anzeige der Anleitung vor Spielbeginn
 display_instructions()
 
 running = True
-collect_timer = 0
 while running:
-    screen.fill(WHITE)
+    screen.fill(BLACK)
 
     elapsed_time = time.time() - start_time
     if elapsed_time >= timer_duration:
-        running = False
-        print("Time's up! You ran out of time.")
+        print("Die Zeit ist abgelaufen! Du hast verloren.")
+        time.sleep(3)
+        player_pos = [1, 1]
+        player_lives = 3
+        letters = []
+        for _ in range(20):
+            while True:
+                x = random.randint(1, MAZE_WIDTH - 2)
+                y = random.randint(1, MAZE_HEIGHT - 2)
+                if maze[y][x] == 0 and not any(l[0] == x and l[1] == y for l in letters):
+                    letters.append((x, y, random.choice("WEIDMUELLER")))
+                    break
+        start_time = time.time()
+
+    if not louis_spawned and elapsed_time >= timer_duration - 15 * 60:
+        boss_positions.append([random.randint(1, MAZE_WIDTH - 2), random.randint(1, MAZE_HEIGHT - 2)])
+        louis_spawned = True
 
     viewport_x = max(0, min(player_pos[0] - VIEWPORT_WIDTH // 2, MAZE_WIDTH - VIEWPORT_WIDTH))
     viewport_y = max(0, min(player_pos[1] - VIEWPORT_HEIGHT // 2, MAZE_HEIGHT - VIEWPORT_HEIGHT))
@@ -130,77 +292,138 @@ while running:
             maze_x = viewport_x + x
             maze_y = viewport_y + y
             if maze_y < MAZE_HEIGHT and maze_x < MAZE_WIDTH and maze[maze_y][maze_x] == 1:
-                pygame.draw.rect(screen, BLACK, (x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE))
+                pygame.draw.rect(screen, WHITE, (x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE))
 
     font = pygame.font.Font(None, 36)
     for letter in letters:
         x, y, char = letter
+        color = ORANGE if char in "WEIDMUELLER" else WHITE
         if viewport_x <= x < viewport_x + VIEWPORT_WIDTH and viewport_y <= y < viewport_y + VIEWPORT_HEIGHT:
             screen_x = (x - viewport_x) * TILE_SIZE
             screen_y = (y - viewport_y) * TILE_SIZE
-            text = font.render(char, True, BLACK)
+            text = font.render(char, True, color)
             screen.blit(text, (screen_x + TILE_SIZE // 4, screen_y + TILE_SIZE // 4))
 
     screen_x = (player_pos[0] - viewport_x) * TILE_SIZE
     screen_y = (player_pos[1] - viewport_y) * TILE_SIZE
     screen.blit(player_image, (screen_x, screen_y))
 
-    boss_screen_x = (boss_pos[0] - viewport_x) * TILE_SIZE
-    boss_screen_y = (boss_pos[1] - viewport_y) * TILE_SIZE
-    screen.blit(boss_image, (boss_screen_x, boss_screen_y))
+    for i, boss_pos in enumerate(boss_positions):
+        if i < len(boss_positions) - 1:
+            boss = selected_boss
+        else:
+            boss = louis
+        boss_screen_x = (boss_pos[0] - viewport_x) * TILE_SIZE
+        boss_screen_y = (boss_pos[1] - viewport_y) * TILE_SIZE
+        screen.blit(boss_images[i], (boss_screen_x, boss_screen_y))
 
-    lives_text = font.render(f"Lives: {player_lives}", True, GREEN)
+        if boss["ability"] == "teleport":
+            if random.randint(0, 100) < 2:
+                boss_positions[i] = [random.randint(1, MAZE_WIDTH - 2), random.randint(1, MAZE_HEIGHT - 2)]
+                print(f"{boss['name']} hat sich teleportiert!")
+                smoke_image = pygame.image.load(os.path.join('assets', 'smoke.gif'))
+                smoke_image = pygame.transform.scale(smoke_image, (TILE_SIZE, TILE_SIZE))
+                screen.blit(smoke_image, (boss_screen_x, boss_screen_y))
+        elif boss["ability"] == "shoot_fibis":
+            if random.randint(0, 100) < 3:
+                fibis_image = pygame.image.load(os.path.join('assets', 'fibi.png'))
+                fibis_image = pygame.transform.scale(fibis_image, (TILE_SIZE, TILE_SIZE))
+                fibis_pos = boss_pos[:]
+                if player_pos[0] > boss_pos[0]:
+                    fibis_pos[0] += 1
+                elif player_pos[0] < boss_pos[0]:
+                    fibis_pos[0] -= 1
+                if player_pos[1] > boss_pos[1]:
+                    fibis_pos[1] += 1
+                elif player_pos[1] < boss_pos[1]:
+                    fibis_pos[1] -= 1
+                screen.blit(fibis_image, (fibis_pos[0] * TILE_SIZE, fibis_pos[1] * TILE_SIZE))
+                if player_pos == fibis_pos:
+                    player_lives -= 1
+                    print("Jannik's Fibi hat dich getroffen!")
+        elif boss["ability"] == "long_range_attack":
+            if abs(player_pos[0] - boss_pos[0]) <= 5 or abs(player_pos[1] - boss_pos[1]) <= 5:
+                pygame.draw.line(screen, RED, (boss_screen_x + TILE_SIZE // 2, boss_screen_y + TILE_SIZE // 2), (screen_x + TILE_SIZE // 2, screen_y + TILE_SIZE // 2), 2)
+                if abs(player_pos[0] - boss_pos[0]) <= 1 and abs(player_pos[1] - boss_pos[1]) <= 1:
+                    player_lives -= 1
+                    print("Phillip hat dich aus großer Reichweite getroffen!")
+        elif boss["ability"] == "shoot_u_stahl":
+            if random.randint(0, 100) < 5:
+                u_stahl_image = pygame.image.load(os.path.join('assets', 'u_stahl.png'))
+                u_stahl_image = pygame.transform.scale(u_stahl_image, (TILE_SIZE, TILE_SIZE))
+                u_stahl_pos = boss_pos[:]
+                if player_pos[0] > boss_pos[0]:
+                    u_stahl_pos[0] += 1
+                elif player_pos[0] < boss_pos[0]:
+                    u_stahl_pos[0] -= 1
+                if player_pos[1] > boss_pos[1]:
+                    u_stahl_pos[1] += 1
+                elif player_pos[1] < boss_pos[1]:
+                    u_stahl_pos[1] -= 1
+                screen.blit(u_stahl_image, (u_stahl_pos[0] * TILE_SIZE, u_stahl_pos[1] * TILE_SIZE))
+                if player_pos == u_stahl_pos:
+                    player_lives -= 3
+                    print("Louis' U-Stahl hat dich getroffen! 3 Leben abgezogen!")
+
+    lives_text = font.render(f"Leben: {player_lives}", True, GREEN)
     screen.blit(lives_text, (10, 10))
 
-    for event in pygame.event.get():
-        if event.type == QUIT:
-            running = False
+    if shield_active:
+        shield_time_left = shield_duration - (time.time() - shield_timer)
+        if shield_time_left <= 0:
+            shield_active = False
+            shield_timer = time.time()
+        shield_text = font.render(f"Schutzschild: {shield_symbol} ({int(shield_time_left)}s)", True, GREEN)
+    else:
+        cooldown_time_left = shield_cooldown - (time.time() - shield_timer)
+        if cooldown_time_left <= 0:
+            shield_active = True
+            shield_timer = time.time()
+            cooldown_time_left = shield_cooldown
+        shield_text = font.render(f"Schutzschild bereit in: {int(cooldown_time_left)}s", True, RED)
+    screen.blit(shield_text, (10, 40))
 
-    new_x, new_y = player_pos
-    if GPIO.input(UP_PIN) == GPIO.HIGH and new_y > 0 and maze[new_y - 1][new_x] == 0:
-        new_y -= 1
-    elif GPIO.input(DOWN_PIN) == GPIO.HIGH and new_y < MAZE_HEIGHT - 1 and maze[new_y + 1][new_x] == 0:
-        new_y += 1
-    elif GPIO.input(LEFT_PIN) == GPIO.HIGH and new_x > 0 and maze[new_y][new_x - 1] == 0:
-        new_x -= 1
-    elif GPIO.input(RIGHT_PIN) == GPIO.HIGH and new_x < MAZE_WIDTH - 1 and maze[new_y][new_x + 1] == 0:
-        new_x += 1
-    player_pos = [new_x, new_y]
-
-    for letter in letters[:]:
-        if player_pos[0] == letter[0] and player_pos[1] == letter[1]:
-            if collect_timer == 0:
-                collect_timer = time.time()
-            elif time.time() - collect_timer > 1:  # Sammle Buchstaben, wenn der Spieler länger als 1 Sekunde darauf steht
-                letters.remove(letter)
-                collect_timer = 0
-        else:
-            collect_timer = 0
-
-    if player_pos == boss_pos:
-        player_lives -= 1
-        if player_lives == 0:
-            running = False
-            print("You were caught by the boss! Game over.")
-            screen.fill(WHITE)
-            end_text = font.render("You were caught by the boss!", True, RED)
-            screen.blit(end_text, (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 2))
-            pygame.display.flip()
-            time.sleep(5)
-        else:
-            player_pos = [1, 1]
-
-    if not letters:
-        running = False
-        print("Congratulations! You collected all the letters and won the game!")
-        screen.fill(WHITE)
-        end_text = font.render(f"You collected: Weidmüller Headquarters", True, BLACK)
+    if player_lives <= 0:
+        print("Du wurdest vom Boss erwischt! Spiel vorbei.")
+        time.sleep(3)
+        player_pos = [1, 1]
+        player_lives = 3
+        letters = []
+        for _ in range(20):
+            while True:
+                x = random.randint(1, MAZE_WIDTH - 2)
+                y = random.randint(1, MAZE_HEIGHT - 2)
+                if maze[y][x] == 0 and not any(l[0] == x and l[1] == y for l in letters):
+                    letters.append((x, y, random.choice("WEIDMUELLER")))
+                    break
+        start_time = time.time()
+        screen.fill(BLACK)
+        end_text = font.render("Du wurdest vom Boss erwischt!", True, RED)
         screen.blit(end_text, (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 2))
         pygame.display.flip()
         time.sleep(5)
+        continue
+
+    if not letters:
+        running = False
+        print("Glückwunsch! Du hast alle Buchstaben gesammelt und das Spiel gewonnen!")
+        screen.fill(BLACK)
+        end_text = font.render(f"Du hast gesammelt: Weidmüller Headquarters", True, GREEN)
+        screen.blit(end_text, (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 2))
+        pygame.display.flip()
+        time.sleep(35)
+        screen.fill(BLACK)
+        credits_text = font.render("Developer: Jannik, Tom", True, WHITE)
+        screen.blit(credits_text, (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 2 - 60))
+        design_text = font.render("Design: Louis, Jannik", True, WHITE)
+        screen.blit(design_text, (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 2))
+        ideas_text = font.render("Ideen: Phillip, Cora, Jannes, Chris, Laurin", True, WHITE)
+        screen.blit(ideas_text, (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 2 + 60))
+        pygame.display.flip()
+        time.sleep(10)
 
     pygame.display.flip()
     clock.tick(10)
 
 pygame.quit()
-GPIO.cleanup()
+controller.stop()
