@@ -10,16 +10,24 @@ MAZE_WIDTH = 30
 MAZE_HEIGHT = 30
 VIEWPORT_WIDTH = 20
 VIEWPORT_HEIGHT = 15
-SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 480
+SCREEN_WIDTH = 800  # Raspberry Pi Touchscreen Breite
+SCREEN_HEIGHT = 480  # Raspberry Pi Touchscreen Höhe
 
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 RED = (255, 0, 0)
 GREEN = (0, 255, 0)
 ORANGE = (255, 165, 0)
-BLUE = (0, 0, 255)
-YELLOW = (255, 255, 0)
+
+player_pos = [1, 1]
+player_lives = 3
+shield_active = False
+shield_timer = 0
+shield_cooldown = 20
+shield_duration = 10
+shield_symbol = "U-Stahl"
+boost_active = False
+boost_timer = 0
 
 pygame.init()
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.FULLSCREEN)
@@ -34,204 +42,599 @@ class MyController(Controller):
     def __init__(self, **kwargs):
         Controller.__init__(self, **kwargs)
 
+    # Kreuz (X): Buchstaben einsammeln
     def on_x_press(self):
-        Game.collect_letter()
+        global letters, player_pos, collected_letters
+        for letter in letters[:]:
+            if player_pos[0] == letter[0] and player_pos[1] == letter[1]:
+                letters.remove(letter)
+        for letter in letters[:]:
+            if player_pos[0] == letter[0] and player_pos[1] == letter[1]:
+                collected_letters.append(letter[2])
+                print("Buchstabe eingesammelt!")
 
+    # Kreis (O): Boost aktivieren
     def on_circle_press(self):
-        Game.activate_boost()
+        global boost_active, boost_timer
+        if not boost_active:
+            boost_active = True
+        boost_timer = time.time()
+        print("Boost aktiviert!")
+        boost_time_left = 10  # Boost duration in seconds
 
+        # Visual Indicator for Boost - Yellow Trail Effect
+        boost_effect_color = (255, 255, 0)  # Yellow
+        for i in range(1, 4):
+            trail_x = player_pos[0] - i if player_pos[0] - i >= 0 else 0
+            trail_y = player_pos[1]
+            pygame.draw.rect(screen, boost_effect_color, (trail_x * TILE_SIZE, trail_y * TILE_SIZE, TILE_SIZE, TILE_SIZE))
+
+# Boost deaktivieren, wenn die Dauer abgelaufen ist
+if boost_active:
+                boost_time_left = shield_duration - (time.time() - boost_timer)
+            if boost_time_left <= 0:
+            boost_active = False
+            print("Boost deaktiviert!")
+
+    # Dreieck (Δ): Schutzschild aktivieren
     def on_triangle_press(self):
-        Game.activate_shield()
+        global shield_active, shield_timer
+        if not shield_active:
+            shield_active = True
+        shield_timer = time.time()
+        print("Schutzschild aktiviert!")
 
+        # Visual Indicator for Shield - Blue Glow Effect
+        blue_glow_color = (0, 0, 255)  # Blue
+        pygame.draw.circle(screen, blue_glow_color, (player_pos[0] * TILE_SIZE + TILE_SIZE // 2, player_pos[1] * TILE_SIZE + TILE_SIZE // 2), TILE_SIZE, 5)
+
+    # Quadrat (□): Anweisungen anzeigen
     def on_square_press(self):
-        Game.display_instructions()
+        display_instructions()
 
     def on_L3_up(self, value):
-        if value < -10000:
-            Game.player.move(0, -1)
+        global player_pos, maze
+        if value < -10000 and player_pos[1] > 0 and 0 <= player_pos[0] < MAZE_WIDTH and 0 <= player_pos[1] - 1 < MAZE_HEIGHT and maze[player_pos[1] - 1][player_pos[0]] == 0: if player_pos[1] - 1 >= 0 else False:
+            if not boost_active or (boost_active and player_pos[1] - 2 >= 0 and maze[player_pos[1] - 2][player_pos[0]] == 0):
+                player_pos[1] -= 1
 
     def on_L3_down(self, value):
-        if value > 10000:
-            Game.player.move(0, 1)
+        global player_pos, maze
+        if value > 10000 and player_pos[1] < MAZE_HEIGHT - 1 and 0 <= player_pos[0] < MAZE_WIDTH and 0 <= player_pos[1] + 1 < MAZE_HEIGHT and maze[player_pos[1] + 1][player_pos[0]] == 0: if player_pos[1] + 1 < MAZE_HEIGHT else False:
+            if not boost_active or (boost_active and player_pos[1] + 2 < MAZE_HEIGHT and maze[player_pos[1] + 2][player_pos[0]] == 0):
+                player_pos[1] += 1
 
     def on_L3_left(self, value):
-        if value < -10000:
-            Game.player.move(-1, 0)
+        global player_pos, maze
+        if value < -10000 and player_pos[0] > 0 and 0 <= player_pos[1] < MAZE_HEIGHT and 0 <= player_pos[0] - 1 < MAZE_WIDTH and maze[player_pos[1]][player_pos[0] - 1] == 0: if player_pos[0] - 1 >= 0 else False:
+            if not boost_active or (boost_active and player_pos[0] - 2 >= 0 and maze[player_pos[1]][player_pos[0] - 2] == 0):
+                player_pos[0] -= 1
 
     def on_L3_right(self, value):
-        if value > 10000:
-            Game.player.move(1, 0)
+        global player_pos, maze
+        if value > 10000 and player_pos[0] < MAZE_WIDTH - 1 and 0 <= player_pos[1] < MAZE_HEIGHT and 0 <= player_pos[0] + 1 < MAZE_WIDTH and maze[player_pos[1]][player_pos[0] + 1] == 0: if player_pos[0] + 1 < MAZE_WIDTH else False:
+            if not boost_active or (boost_active and player_pos[0] + 2 < MAZE_WIDTH and maze[player_pos[1]][player_pos[0] + 2] == 0):
+                player_pos[0] += 1
 
-class Player:
-    def __init__(self, image, pos):
-        self.image = image
-        self.pos = pos
-        self.lives = 3
-        self.shield_active = False
-        self.shield_timer = 0
-        self.boost_active = False
-        self.boost_timer = 0
+controller = MyController(interface="/dev/input/js0", connecting_using_ds4drv=False)
+controller_thread = controller.start()
 
-    def move(self, dx, dy):
-        new_x = self.pos[0] + dx
-        new_y = self.pos[1] + dy
-        if 0 <= new_x < MAZE_WIDTH and 0 <= new_y < MAZE_HEIGHT and Game.maze[new_y][new_x] == 0:
-            self.pos[0] = new_x
-            self.pos[1] = new_y
+# Auswahlmenü für Charaktere
+def character_selection():
+    screen.fill(BLACK)
+    font = pygame.font.Font(None, 36)
+    instructions = [
+        "Wähle deinen Charakter aus:",
+        "1: Charakter 1",
+        "2: Charakter 2",
+        "3: Charakter 3"
+    ]
+    y_offset = 100
+    for line in instructions:
+        text = font.render(line, True, WHITE)
+        screen.blit(text, (SCREEN_WIDTH // 8, y_offset))
+        y_offset += 50
+    pygame.display.flip()
+    waiting = True
+    selected_character = None
+    while waiting:
+        for event in pygame.event.get():
+            if event.type == KEYDOWN:
+                if event.key == K_1:
+                    selected_character = 0
+                    waiting = False
+                elif event.key == K_2:
+                    selected_character = 1
+                    waiting = False
+                elif event.key == K_3:
+                    selected_character = 2
+                    waiting = False
+    return selected_character
 
-    def draw(self, screen):
-        screen_x = (self.pos[0] - Game.viewport_x) * TILE_SIZE
-        screen_y = (self.pos[1] - Game.viewport_y) * TILE_SIZE
-        if self.shield_active:
-            pygame.draw.circle(screen, BLUE, (screen_x + TILE_SIZE // 2, screen_y + TILE_SIZE // 2), TILE_SIZE // 2 + 5, 3)
-        if self.boost_active:
-            pygame.draw.line(screen, YELLOW, (screen_x, screen_y + TILE_SIZE), (screen_x + TILE_SIZE, screen_y), 5)
-        screen.blit(self.image, (screen_x, screen_y))
+player_image = player_images[character_selection()]
 
-class Boss:
-    def __init__(self, name, image, pos, ability):
-        self.name = name
-        self.image = image
-        self.pos = pos
-        self.ability = ability
-        self.move_counter = 0
+# Auswahlmenü für Bosse
+def boss_selection():
+    screen.fill(BLACK)
+    font = pygame.font.Font(None, 36)
+    instructions = [
+        "Wähle deinen Boss aus:",
+        "1: Tom",
+        "2: Jannik",
+        "3: Phillip"
+    ]
+    y_offset = 100
+    for line in instructions:
+        text = font.render(line, True, WHITE)
+        screen.blit(text, (SCREEN_WIDTH // 8, y_offset))
+        y_offset += 50
+    pygame.display.flip()
+    waiting = True
+    selected_boss = None
+    while waiting:
+        for event in pygame.event.get():
+            if event.type == KEYDOWN:
+                if event.key == K_1:
+                    selected_boss = 0
+                    waiting = False
+                elif event.key == K_2:
+                    selected_boss = 1
+                    waiting = False
+                elif event.key == K_3:
+                    selected_boss = 2
+                    waiting = False
+    return selected_boss
 
-    def move_towards_player(self, player_pos):
-        if self.move_counter % 10 == 0:
-            if abs(player_pos[0] - self.pos[0]) > abs(player_pos[1] - self.pos[1]):
-                if Game.maze[self.pos[1]][self.pos[0] + (1 if player_pos[0] > self.pos[0] else -1)] == 0:
-                    self.pos[0] += 1 if player_pos[0] > self.pos[0] else -1
-            else:
-                if Game.maze[self.pos[1] + (1 if player_pos[1] > self.pos[1] else -1)][self.pos[0]] == 0:
-                    self.pos[1] += 1 if player_pos[1] > self.pos[1] else -1
-        self.move_counter += 1
+selected_boss_index = boss_selection()
 
-    def draw(self, screen):
-        screen_x = (self.pos[0] - Game.viewport_x) * TILE_SIZE
-        screen_y = (self.pos[1] - Game.viewport_y) * TILE_SIZE
-        screen.blit(self.image, (screen_x, screen_y))
+# Boss Bilder
+boss_images = [
+    pygame.transform.scale(pygame.image.load(os.path.join('assets', f'boss_{i}.png')), (TILE_SIZE, TILE_SIZE)) for i in range(1, 5)
+]
 
-class Game:
-    player = None
-    bosses = []
-    letters = []
-    maze = []
-    viewport_x = 0
-    viewport_y = 0
+# Fähigkeiten Bilder für jeden Boss
+boss_abilities_images = [
+    [
+        pygame.transform.scale(pygame.image.load(os.path.join('assets', f'boss_{i}_ability_{j}.png')), (TILE_SIZE, TILE_SIZE)) for j in range(1, 3)  # Zwei Fähigkeiten pro Boss
+    ] for i in range(1, 5)
+]
 
-    @staticmethod
-    def init():
-        Game.maze = Game.generate_maze(MAZE_WIDTH, MAZE_HEIGHT)
-        Game.player = Player(player_images[Game.character_selection()], [1, 1])
-        Game.bosses.append(Boss("Jannik", pygame.image.load(os.path.join('assets', 'boss_1.png')), [10, 10], "shoot_fibis"))
-        Game.generate_letters()
-        Game.display_instructions()
+# Eigenschaften der Bosse
+boss_attributes = [
+    {"name": "Tom", "ability": "teleport", "description": "Teleportiert sich und hinterlässt Rauch", "damage": 1, "speed": 1, "abilities": ["ability_1", "ability_2"]},
+    {"name": "Jannik", "ability": "shoot_fibis", "description": "Schießt wütende Fibis", "damage": 1, "speed": 1.5, "abilities": ["ability_1", "ability_2"]},
+    {"name": "Phillip", "ability": "long_range_attack", "description": "Besitzt eine große Angriffsreichweite", "damage": 2, "speed": 1.2, "abilities": ["ability_1", "ability_2"]},
+    {"name": "Louis (Endboss)", "ability": "shoot_u_stahl", "description": "Schießt U-Stahl, der 3 Leben abzieht", "damage": 3, "speed": 2, "abilities": ["ability_1", "ability_2"]}
+]
 
-    @staticmethod
-    def generate_maze(width, height):
-        maze = [[1 for _ in range(width)] for _ in range(height)]
-        stack = [(1, 1)]
-        maze[1][1] = 0
-        directions = [(-2, 0), (2, 0), (0, -2), (0, 2)]
+selected_boss = boss_attributes[selected_boss_index]
+louis = boss_attributes[3]
 
-        while stack:
-            current_cell = stack[-1]
-            x, y = current_cell
-            neighbors = []
+# Position des gewählten Bosses
+boss_positions = [[random.randint(1, MAZE_WIDTH - 2), random.randint(1, MAZE_HEIGHT - 2)]]
+louis_spawned = False
 
-            for dx, dy in directions:
-                nx, ny = x + dx, y + dy
-                if 1 <= nx < width-1 and 1 <= ny < height-1 and maze[ny][nx] == 1:
-                    neighbors.append((nx, ny))
+# Anzeige der Anleitung vor Spielbeginn
+def display_instructions():
+    screen.fill(BLACK)
+    font = pygame.font.Font(None, 36)
+    instructions = [
+        "Willkommen im Labyrinth-Spiel!",
+        "Verwende den PS4-Controller mit folgenden Tasten:",
+        "Kreuz (X): Buchstaben einsammeln",
+        "Kreis (O): Boost aktivieren",
+        "Dreieck (Δ): Schutzschild aktivieren",
+        "Quadrat (□): Anweisungen anzeigen",
+        "Sammle alle Buchstaben, um den Namen des Hauptsitzes von Weidmüller zu bilden.",
+        "Vermeide die Bosse, die versuchen, dich aufzuhalten!",
+        "Benutze den PS4-Controller, um dich zu bewegen.",
+        "Du hast 3 Leben. Drücke einen beliebigen Knopf, um das Spiel zu starten."
+    ]
+    y_offset = 100
+    for line in instructions:
+        text = font.render(line, True, WHITE)
+        screen.blit(text, (SCREEN_WIDTH // 8, y_offset))
+        y_offset += 50
+    pygame.display.flip()
+    waiting = True
+    while waiting:
+        for event in pygame.event.get():
+            if event.type == KEYDOWN or event.type == MOUSEBUTTONDOWN:
+                waiting = False
 
-            if neighbors:
-                next_cell = random.choice(neighbors)
-                stack.append(next_cell)
-                maze[next_cell[1]][next_cell[0]] = 0
-                maze[(y + next_cell[1]) // 2][(x + next_cell[0]) // 2] = 0
-            else:
-                stack.pop()
+# Generiere das Labyrinth
+def generate_maze(width, height):
+    maze = [[1 for _ in range(width)] for _ in range(height)]
+    stack = [(1, 1)]
+    maze[1][1] = 0
+    directions = [(-2, 0), (2, 0), (0, -2), (0, 2)]
+    random.shuffle(directions)  # Randomize directions to improve maze generation variety
+    visited = set()
+    visited.add((1, 1))
 
-        return maze
+    while stack:
+    current_cell = stack[-1]
+    x, y = current_cell
+    neighbors = []
 
-    @staticmethod
-    def generate_letters():
-        Game.letters = []
+    for dx, dy in directions:
+    nx, ny = x + dx, y + dy
+    if 1 <= nx < width - 1 and 1 <= ny < height - 1 and (nx, ny) not in visited:
+    if maze[ny][nx] == 1:
+
+    neighbors.append((nx, ny))
+
+    if neighbors:
+    next_cell = random.choice(neighbors)
+    stack.append(next_cell)
+    maze[next_cell[1]][next_cell[0]] = 0
+    maze[(y + next_cell[1]) // 2][(x + next_cell[0]) // 2] = 0
+    visited.add(next_cell)
+    else:
+    stack.pop()
+
+    # Add some loops to make the maze less linear and more challenging
+    for _ in range(int(width * height * 0.05)):
+    x = random.randint(1, width - 2)
+    y = random.randint(1, height - 2)
+    if maze[y][x] == 1:
+    neighbors = [(x + dx, y + dy) for dx, dy in directions if 1 <= x + dx < width - 1 and 1 <= y + dy < height - 1]
+    if any(maze[ny][nx] == 0 for nx, ny in neighbors):
+    maze[y][x] = 0
+
+    return maze
+
+    return maze
+
+maze = generate_maze(MAZE_WIDTH, MAZE_HEIGHT)
+maze[player_pos[1]][player_pos[0]] = 0
+
+letters = []
+collected_letters = []
+for _ in range(20):
+    while True:
+        x = random.randint(1, MAZE_WIDTH - 2)
+        y = random.randint(1, MAZE_HEIGHT - 2)
+        if maze[y][x] == 0 and not any(l[0] == x and l[1] == y for l in letters):
+            letters.append((x, y, random.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ")))
+            break
+
+start_time = time.time()
+timer_duration = 15 * 60
+
+display_instructions()
+
+running = True
+while running:
+    screen.fill(BLACK)
+    # Zeige gesammelte Buchstaben oben mittig an
+    collected_text = ''.join([char for char in 'HAUPTSITZVONWEIDMÜLLER' if char in collected_letters])
+    collected_text_rendered = font.render(collected_text, True, ORANGE)
+    screen.blit(collected_text_rendered, (SCREEN_WIDTH // 2 - collected_text_rendered.get_width() // 2, 10))
+
+    elapsed_time = time.time() - start_time
+    if elapsed_time >= timer_duration:
+        print("Die Zeit ist abgelaufen! Du hast verloren.")
+        time.sleep(3)
+        player_pos = [1, 1]
+        player_lives = 3
+        letters = []
         for _ in range(20):
             while True:
                 x = random.randint(1, MAZE_WIDTH - 2)
                 y = random.randint(1, MAZE_HEIGHT - 2)
-                if Game.maze[y][x] == 0 and not any(l[0] == x and l[1] == y for l in Game.letters):
-                    Game.letters.append((x, y, random.choice("WEIDMUELLER")))
+                if maze[y][x] == 0 and not any(l[0] == x and l[1] == y for l in letters):
+                    letters.append((x, y, random.choice("WEIDMUELLER")))
                     break
+        start_time = time.time()
 
-    @staticmethod
-    def character_selection():
-        return 0
+    if not louis_spawned and elapsed_time >= timer_duration - 15 * 60:
+        boss_positions.append([random.randint(1, MAZE_WIDTH - 2), random.randint(1, MAZE_HEIGHT - 2)])
+        louis_spawned = True
 
-    @staticmethod
-    def display_instructions():
-        pass
+    viewport_x = max(0, min(player_pos[0] - VIEWPORT_WIDTH // 2, MAZE_WIDTH - VIEWPORT_WIDTH))
+    viewport_y = max(0, min(player_pos[1] - VIEWPORT_HEIGHT // 2, MAZE_HEIGHT - VIEWPORT_HEIGHT))
 
-    @staticmethod
-    def collect_letter():
-        for letter in Game.letters[:]:
-            if Game.player.pos[0] == letter[0] and Game.player.pos[1] == letter[1]:
-                Game.letters.remove(letter)
-                print("Buchstabe eingesammelt!")
+    for y in range(VIEWPORT_HEIGHT):
+        for x in range(VIEWPORT_WIDTH):
+            maze_x = viewport_x + x
+            maze_y = viewport_y + y
+            if maze_y < MAZE_HEIGHT and maze_x < MAZE_WIDTH and maze[maze_y][maze_x] == 1:
+                pygame.draw.rect(screen, WHITE, (x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE))
 
-    @staticmethod
-    def activate_boost():
-        if not Game.player.boost_active:
-            Game.player.boost_active = True
-            Game.player.boost_timer = time.time()
-            print("Boost aktiviert!")
+    font = pygame.font.Font(None, 36)
+    for letter in letters:
+        x, y, char = letter
+        if char in 'HAUPTSITZVONWEIDMÜLLER':
+        color = WHITE
+        else:
+        color = ORANGE
+        if viewport_x <= x < viewport_x + VIEWPORT_WIDTH and viewport_y <= y < viewport_y + VIEWPORT_HEIGHT:
+            screen_x = (x - viewport_x) * TILE_SIZE
+            screen_y = (y - viewport_y) * TILE_SIZE
+            text = font.render(char, True, color)
+            screen.blit(text, (screen_x + TILE_SIZE // 4, screen_y + TILE_SIZE // 4))
 
-    @staticmethod
-    def activate_shield():
-        if not Game.player.shield_active:
-            Game.player.shield_active = True
-            Game.player.shield_timer = time.time()
-            print("Schutzschild aktiviert!")
+    screen_x = (player_pos[0] - viewport_x) * TILE_SIZE
+    screen_y = (player_pos[1] - viewport_y) * TILE_SIZE
+    screen.blit(player_image, (screen_x, screen_y))
 
-    @staticmethod
-    def update():
-        Game.viewport_x = max(0, min(Game.player.pos[0] - VIEWPORT_WIDTH // 2, MAZE_WIDTH - VIEWPORT_WIDTH))
-        Game.viewport_y = max(0, min(Game.player.pos[1] - VIEWPORT_HEIGHT // 2, MAZE_HEIGHT - VIEWPORT_HEIGHT))
-        for boss in Game.bosses:
-            boss.move_towards_player(Game.player.pos)
+    for i, boss_pos in enumerate(boss_positions):
+        if i < len(boss_positions) - 1:
+                boss = selected_boss
+        else:
+                boss = louis
 
-        if Game.player.boost_active and time.time() - Game.player.boost_timer > 5:
-            Game.player.boost_active = False
-        if Game.player.shield_active and time.time() - Game.player.shield_timer > 5:
-            Game.player.shield_active = False
+        # Boss KI, um den Spieler zu verfolgen
+        if boss_pos[0] < player_pos[0] and 0 <= boss_pos[1] < MAZE_HEIGHT and 0 <= boss_pos[0] + 1 < MAZE_WIDTH and maze[boss_pos[1]][boss_pos[0] + 1] == 0:
+                boss_pos[0] += 1
+        elif boss_pos[0] > player_pos[0] and 0 <= boss_pos[1] < MAZE_HEIGHT and 0 <= boss_pos[0] - 1 < MAZE_WIDTH and maze[boss_pos[1]][boss_pos[0] - 1] == 0:
+                boss_pos[0] -= 1
+        if boss_pos[1] < player_pos[1] and 0 <= boss_pos[0] < MAZE_WIDTH and 0 <= boss_pos[1] + 1 < MAZE_HEIGHT and maze[boss_pos[1] + 1][boss_pos[0]] == 0:
+                boss_pos[1] += 1
+        elif boss_pos[1] > player_pos[1] and 0 <= boss_pos[0] < MAZE_WIDTH and 0 <= boss_pos[1] - 1 < MAZE_HEIGHT and maze[boss_pos[1] - 1][boss_pos[0]] == 0:
+                boss_pos[1] -= 1
+        boss_screen_x = (boss_pos[0] - viewport_x) * TILE_SIZE
+        boss_screen_y = (boss_pos[1] - viewport_y) * TILE_SIZE
+        # Verbesserte Verfolgungs-Logik
+        if boss_pos[0] < player_pos[0] and 0 <= boss_pos[1] < MAZE_HEIGHT and 0 <= boss_pos[0] + 1 < MAZE_WIDTH and maze[boss_pos[1]][boss_pos[0] + 1] == 0:
+                boss_pos[0] += 1
+        elif boss_pos[0] > player_pos[0] and 0 <= boss_pos[1] < MAZE_HEIGHT and 0 <= boss_pos[0] - 1 < MAZE_WIDTH and maze[boss_pos[1]][boss_pos[0] - 1] == 0:
+                boss_pos[0] -= 1
+        if boss_pos[1] < player_pos[1] and 0 <= boss_pos[0] < MAZE_WIDTH and 0 <= boss_pos[1] + 1 < MAZE_HEIGHT and maze[boss_pos[1] + 1][boss_pos[0]] == 0:
+                boss_pos[1] += 1
+        elif boss_pos[1] > player_pos[1] and 0 <= boss_pos[0] < MAZE_WIDTH and 0 <= boss_pos[1] - 1 < MAZE_HEIGHT and maze[boss_pos[1] - 1][boss_pos[0]] == 0:
+                boss_pos[1] -= 1
+        boss_screen_x = (boss_pos[0] - viewport_x) * TILE_SIZE
+        boss_screen_y = (boss_pos[1] - viewport_y) * TILE_SIZE
+        dx = player_pos[0] - boss_pos[0]
+        if boss_pos[0] < player_pos[0] and 0 <= boss_pos[1] < MAZE_HEIGHT and 0 <= boss_pos[0] + 1 < MAZE_WIDTH and maze[boss_pos[1]][boss_pos[0] + 1] == 0:
+                boss_pos[0] += 1
+        elif boss_pos[0] > player_pos[0] and 0 <= boss_pos[1] < MAZE_HEIGHT and 0 <= boss_pos[0] - 1 < MAZE_WIDTH and maze[boss_pos[1]][boss_pos[0] - 1] == 0:
+                boss_pos[0] -= 1
+        if boss_pos[1] < player_pos[1] and 0 <= boss_pos[0] < MAZE_WIDTH and 0 <= boss_pos[1] + 1 < MAZE_HEIGHT and maze[boss_pos[1] + 1][boss_pos[0]] == 0:
+                boss_pos[1] += 1
+        elif boss_pos[1] > player_pos[1] and 0 <= boss_pos[0] < MAZE_WIDTH and 0 <= boss_pos[1] - 1 < MAZE_HEIGHT and maze[boss_pos[1] - 1][boss_pos[0]] == 0:
+                boss_pos[1] -= 1
+        boss_screen_x = (boss_pos[0] - viewport_x) * TILE_SIZE
+        boss_screen_y = (boss_pos[1] - viewport_y) * TILE_SIZE
+        dy = player_pos[1] - boss_pos[1]
+        if boss_pos[0] < player_pos[0] and 0 <= boss_pos[1] < MAZE_HEIGHT and 0 <= boss_pos[0] + 1 < MAZE_WIDTH and maze[boss_pos[1]][boss_pos[0] + 1] == 0:
+                boss_pos[0] += 1
+        elif boss_pos[0] > player_pos[0] and 0 <= boss_pos[1] < MAZE_HEIGHT and 0 <= boss_pos[0] - 1 < MAZE_WIDTH and maze[boss_pos[1]][boss_pos[0] - 1] == 0:
+                boss_pos[0] -= 1
+        if boss_pos[1] < player_pos[1] and 0 <= boss_pos[0] < MAZE_WIDTH and 0 <= boss_pos[1] + 1 < MAZE_HEIGHT and maze[boss_pos[1] + 1][boss_pos[0]] == 0:
+                boss_pos[1] += 1
+        elif boss_pos[1] > player_pos[1] and 0 <= boss_pos[0] < MAZE_WIDTH and 0 <= boss_pos[1] - 1 < MAZE_HEIGHT and maze[boss_pos[1] - 1][boss_pos[0]] == 0:
+                boss_pos[1] -= 1
+        boss_screen_x = (boss_pos[0] - viewport_x) * TILE_SIZE
+        boss_screen_y = (boss_pos[1] - viewport_y) * TILE_SIZE
+        if abs(dx) > abs(dy):
+        if boss_pos[0] < player_pos[0] and 0 <= boss_pos[1] < MAZE_HEIGHT and 0 <= boss_pos[0] + 1 < MAZE_WIDTH and maze[boss_pos[1]][boss_pos[0] + 1] == 0:
+                boss_pos[0] += 1
+        elif boss_pos[0] > player_pos[0] and 0 <= boss_pos[1] < MAZE_HEIGHT and 0 <= boss_pos[0] - 1 < MAZE_WIDTH and maze[boss_pos[1]][boss_pos[0] - 1] == 0:
+                boss_pos[0] -= 1
+        if boss_pos[1] < player_pos[1] and 0 <= boss_pos[0] < MAZE_WIDTH and 0 <= boss_pos[1] + 1 < MAZE_HEIGHT and maze[boss_pos[1] + 1][boss_pos[0]] == 0:
+                boss_pos[1] += 1
+        elif boss_pos[1] > player_pos[1] and 0 <= boss_pos[0] < MAZE_WIDTH and 0 <= boss_pos[1] - 1 < MAZE_HEIGHT and maze[boss_pos[1] - 1][boss_pos[0]] == 0:
+                boss_pos[1] -= 1
+        boss_screen_x = (boss_pos[0] - viewport_x) * TILE_SIZE
+        boss_screen_y = (boss_pos[1] - viewport_y) * TILE_SIZE
+            if dx > 0 and boss_pos[0] + 1 < MAZE_WIDTH and maze[boss_pos[1]][boss_pos[0] + 1] == 0:
+        if boss_pos[0] < player_pos[0] and 0 <= boss_pos[1] < MAZE_HEIGHT and 0 <= boss_pos[0] + 1 < MAZE_WIDTH and maze[boss_pos[1]][boss_pos[0] + 1] == 0:
+                boss_pos[0] += 1
+        elif boss_pos[0] > player_pos[0] and 0 <= boss_pos[1] < MAZE_HEIGHT and 0 <= boss_pos[0] - 1 < MAZE_WIDTH and maze[boss_pos[1]][boss_pos[0] - 1] == 0:
+                boss_pos[0] -= 1
+        if boss_pos[1] < player_pos[1] and 0 <= boss_pos[0] < MAZE_WIDTH and 0 <= boss_pos[1] + 1 < MAZE_HEIGHT and maze[boss_pos[1] + 1][boss_pos[0]] == 0:
+                boss_pos[1] += 1
+        elif boss_pos[1] > player_pos[1] and 0 <= boss_pos[0] < MAZE_WIDTH and 0 <= boss_pos[1] - 1 < MAZE_HEIGHT and maze[boss_pos[1] - 1][boss_pos[0]] == 0:
+                boss_pos[1] -= 1
+        boss_screen_x = (boss_pos[0] - viewport_x) * TILE_SIZE
+        boss_screen_y = (boss_pos[1] - viewport_y) * TILE_SIZE
+                boss_pos[0] += 1
+        if boss_pos[0] < player_pos[0] and 0 <= boss_pos[1] < MAZE_HEIGHT and 0 <= boss_pos[0] + 1 < MAZE_WIDTH and maze[boss_pos[1]][boss_pos[0] + 1] == 0:
+                boss_pos[0] += 1
+        elif boss_pos[0] > player_pos[0] and 0 <= boss_pos[1] < MAZE_HEIGHT and 0 <= boss_pos[0] - 1 < MAZE_WIDTH and maze[boss_pos[1]][boss_pos[0] - 1] == 0:
+                boss_pos[0] -= 1
+        if boss_pos[1] < player_pos[1] and 0 <= boss_pos[0] < MAZE_WIDTH and 0 <= boss_pos[1] + 1 < MAZE_HEIGHT and maze[boss_pos[1] + 1][boss_pos[0]] == 0:
+                boss_pos[1] += 1
+        elif boss_pos[1] > player_pos[1] and 0 <= boss_pos[0] < MAZE_WIDTH and 0 <= boss_pos[1] - 1 < MAZE_HEIGHT and maze[boss_pos[1] - 1][boss_pos[0]] == 0:
+                boss_pos[1] -= 1
+        boss_screen_x = (boss_pos[0] - viewport_x) * TILE_SIZE
+        boss_screen_y = (boss_pos[1] - viewport_y) * TILE_SIZE
+            elif dx < 0 and boss_pos[0] - 1 >= 0 and maze[boss_pos[1]][boss_pos[0] - 1] == 0:
+        if boss_pos[0] < player_pos[0] and 0 <= boss_pos[1] < MAZE_HEIGHT and 0 <= boss_pos[0] + 1 < MAZE_WIDTH and maze[boss_pos[1]][boss_pos[0] + 1] == 0:
+                boss_pos[0] += 1
+        elif boss_pos[0] > player_pos[0] and 0 <= boss_pos[1] < MAZE_HEIGHT and 0 <= boss_pos[0] - 1 < MAZE_WIDTH and maze[boss_pos[1]][boss_pos[0] - 1] == 0:
+                boss_pos[0] -= 1
+        if boss_pos[1] < player_pos[1] and 0 <= boss_pos[0] < MAZE_WIDTH and 0 <= boss_pos[1] + 1 < MAZE_HEIGHT and maze[boss_pos[1] + 1][boss_pos[0]] == 0:
+                boss_pos[1] += 1
+        elif boss_pos[1] > player_pos[1] and 0 <= boss_pos[0] < MAZE_WIDTH and 0 <= boss_pos[1] - 1 < MAZE_HEIGHT and maze[boss_pos[1] - 1][boss_pos[0]] == 0:
+                boss_pos[1] -= 1
+        boss_screen_x = (boss_pos[0] - viewport_x) * TILE_SIZE
+        boss_screen_y = (boss_pos[1] - viewport_y) * TILE_SIZE
+                boss_pos[0] -= 1
+        if boss_pos[0] < player_pos[0] and 0 <= boss_pos[1] < MAZE_HEIGHT and 0 <= boss_pos[0] + 1 < MAZE_WIDTH and maze[boss_pos[1]][boss_pos[0] + 1] == 0:
+                boss_pos[0] += 1
+        elif boss_pos[0] > player_pos[0] and 0 <= boss_pos[1] < MAZE_HEIGHT and 0 <= boss_pos[0] - 1 < MAZE_WIDTH and maze[boss_pos[1]][boss_pos[0] - 1] == 0:
+                boss_pos[0] -= 1
+        if boss_pos[1] < player_pos[1] and 0 <= boss_pos[0] < MAZE_WIDTH and 0 <= boss_pos[1] + 1 < MAZE_HEIGHT and maze[boss_pos[1] + 1][boss_pos[0]] == 0:
+                boss_pos[1] += 1
+        elif boss_pos[1] > player_pos[1] and 0 <= boss_pos[0] < MAZE_WIDTH and 0 <= boss_pos[1] - 1 < MAZE_HEIGHT and maze[boss_pos[1] - 1][boss_pos[0]] == 0:
+                boss_pos[1] -= 1
+        boss_screen_x = (boss_pos[0] - viewport_x) * TILE_SIZE
+        boss_screen_y = (boss_pos[1] - viewport_y) * TILE_SIZE
+        elif abs(dy) >= abs(dx):
+        if boss_pos[0] < player_pos[0] and 0 <= boss_pos[1] < MAZE_HEIGHT and 0 <= boss_pos[0] + 1 < MAZE_WIDTH and maze[boss_pos[1]][boss_pos[0] + 1] == 0:
+                boss_pos[0] += 1
+        elif boss_pos[0] > player_pos[0] and 0 <= boss_pos[1] < MAZE_HEIGHT and 0 <= boss_pos[0] - 1 < MAZE_WIDTH and maze[boss_pos[1]][boss_pos[0] - 1] == 0:
+                boss_pos[0] -= 1
+        if boss_pos[1] < player_pos[1] and 0 <= boss_pos[0] < MAZE_WIDTH and 0 <= boss_pos[1] + 1 < MAZE_HEIGHT and maze[boss_pos[1] + 1][boss_pos[0]] == 0:
+                boss_pos[1] += 1
+        elif boss_pos[1] > player_pos[1] and 0 <= boss_pos[0] < MAZE_WIDTH and 0 <= boss_pos[1] - 1 < MAZE_HEIGHT and maze[boss_pos[1] - 1][boss_pos[0]] == 0:
+                boss_pos[1] -= 1
+        boss_screen_x = (boss_pos[0] - viewport_x) * TILE_SIZE
+        boss_screen_y = (boss_pos[1] - viewport_y) * TILE_SIZE
+            if dy > 0 and boss_pos[1] + 1 < MAZE_HEIGHT and maze[boss_pos[1] + 1][boss_pos[0]] == 0:
+        if boss_pos[0] < player_pos[0] and 0 <= boss_pos[1] < MAZE_HEIGHT and 0 <= boss_pos[0] + 1 < MAZE_WIDTH and maze[boss_pos[1]][boss_pos[0] + 1] == 0:
+                boss_pos[0] += 1
+        elif boss_pos[0] > player_pos[0] and 0 <= boss_pos[1] < MAZE_HEIGHT and 0 <= boss_pos[0] - 1 < MAZE_WIDTH and maze[boss_pos[1]][boss_pos[0] - 1] == 0:
+                boss_pos[0] -= 1
+        if boss_pos[1] < player_pos[1] and 0 <= boss_pos[0] < MAZE_WIDTH and 0 <= boss_pos[1] + 1 < MAZE_HEIGHT and maze[boss_pos[1] + 1][boss_pos[0]] == 0:
+                boss_pos[1] += 1
+        elif boss_pos[1] > player_pos[1] and 0 <= boss_pos[0] < MAZE_WIDTH and 0 <= boss_pos[1] - 1 < MAZE_HEIGHT and maze[boss_pos[1] - 1][boss_pos[0]] == 0:
+                boss_pos[1] -= 1
+        boss_screen_x = (boss_pos[0] - viewport_x) * TILE_SIZE
+        boss_screen_y = (boss_pos[1] - viewport_y) * TILE_SIZE
+                boss_pos[1] += 1
+        if boss_pos[0] < player_pos[0] and 0 <= boss_pos[1] < MAZE_HEIGHT and 0 <= boss_pos[0] + 1 < MAZE_WIDTH and maze[boss_pos[1]][boss_pos[0] + 1] == 0:
+                boss_pos[0] += 1
+        elif boss_pos[0] > player_pos[0] and 0 <= boss_pos[1] < MAZE_HEIGHT and 0 <= boss_pos[0] - 1 < MAZE_WIDTH and maze[boss_pos[1]][boss_pos[0] - 1] == 0:
+                boss_pos[0] -= 1
+        if boss_pos[1] < player_pos[1] and 0 <= boss_pos[0] < MAZE_WIDTH and 0 <= boss_pos[1] + 1 < MAZE_HEIGHT and maze[boss_pos[1] + 1][boss_pos[0]] == 0:
+                boss_pos[1] += 1
+        elif boss_pos[1] > player_pos[1] and 0 <= boss_pos[0] < MAZE_WIDTH and 0 <= boss_pos[1] - 1 < MAZE_HEIGHT and maze[boss_pos[1] - 1][boss_pos[0]] == 0:
+                boss_pos[1] -= 1
+        boss_screen_x = (boss_pos[0] - viewport_x) * TILE_SIZE
+        boss_screen_y = (boss_pos[1] - viewport_y) * TILE_SIZE
+            elif dy < 0 and boss_pos[1] - 1 >= 0 and maze[boss_pos[1] - 1][boss_pos[0]] == 0:
+        if boss_pos[0] < player_pos[0] and 0 <= boss_pos[1] < MAZE_HEIGHT and 0 <= boss_pos[0] + 1 < MAZE_WIDTH and maze[boss_pos[1]][boss_pos[0] + 1] == 0:
+                boss_pos[0] += 1
+        elif boss_pos[0] > player_pos[0] and 0 <= boss_pos[1] < MAZE_HEIGHT and 0 <= boss_pos[0] - 1 < MAZE_WIDTH and maze[boss_pos[1]][boss_pos[0] - 1] == 0:
+                boss_pos[0] -= 1
+        if boss_pos[1] < player_pos[1] and 0 <= boss_pos[0] < MAZE_WIDTH and 0 <= boss_pos[1] + 1 < MAZE_HEIGHT and maze[boss_pos[1] + 1][boss_pos[0]] == 0:
+                boss_pos[1] += 1
+        elif boss_pos[1] > player_pos[1] and 0 <= boss_pos[0] < MAZE_WIDTH and 0 <= boss_pos[1] - 1 < MAZE_HEIGHT and maze[boss_pos[1] - 1][boss_pos[0]] == 0:
+                boss_pos[1] -= 1
+        boss_screen_x = (boss_pos[0] - viewport_x) * TILE_SIZE
+        boss_screen_y = (boss_pos[1] - viewport_y) * TILE_SIZE
+                boss_pos[1] -= 1
 
-    @staticmethod
-    def draw():
+        if boss_pos[0] < player_pos[0] and 0 <= boss_pos[1] < MAZE_HEIGHT and 0 <= boss_pos[0] + 1 < MAZE_WIDTH and maze[boss_pos[1]][boss_pos[0] + 1] == 0:
+                boss_pos[0] += 1
+        elif boss_pos[0] > player_pos[0] and 0 <= boss_pos[1] < MAZE_HEIGHT and 0 <= boss_pos[0] - 1 < MAZE_WIDTH and maze[boss_pos[1]][boss_pos[0] - 1] == 0:
+                boss_pos[0] -= 1
+        if boss_pos[1] < player_pos[1] and 0 <= boss_pos[0] < MAZE_WIDTH and 0 <= boss_pos[1] + 1 < MAZE_HEIGHT and maze[boss_pos[1] + 1][boss_pos[0]] == 0:
+                boss_pos[1] += 1
+        elif boss_pos[1] > player_pos[1] and 0 <= boss_pos[0] < MAZE_WIDTH and 0 <= boss_pos[1] - 1 < MAZE_HEIGHT and maze[boss_pos[1] - 1][boss_pos[0]] == 0:
+                boss_pos[1] -= 1
+        boss_screen_x = (boss_pos[0] - viewport_x) * TILE_SIZE
+        boss_screen_y = (boss_pos[1] - viewport_y) * TILE_SIZE
+        screen.blit(boss_images[i], (boss_screen_x, boss_screen_y))
+
+        if boss["ability"] == "teleport":
+        if random.randint(0, 100) < 2:
+            while True:
+            new_x = random.randint(1, MAZE_WIDTH - 2)
+            new_y = random.randint(1, MAZE_HEIGHT - 2)
+            if maze[new_y][new_x] == 0:  # Überprüfen, ob die Zelle frei ist
+                boss_positions[i] = [new_x, new_y]
+                break
+                print(f"{boss['name']} hat sich teleportiert!")
+                smoke_image = pygame.image.load(os.path.join('assets', 'smoke.gif'))
+                smoke_image = pygame.transform.scale(smoke_image, (TILE_SIZE, TILE_SIZE))
+                screen.blit(smoke_image, (boss_screen_x, boss_screen_y))
+        elif boss["ability"] == "shoot_fibis":
+            if random.randint(0, 100) < 3:
+                fibis_image = pygame.image.load(os.path.join('assets', 'fibi.png'))
+                fibis_image = pygame.transform.scale(fibis_image, (TILE_SIZE, TILE_SIZE))
+                fibis_pos = boss_pos[:]
+                if player_pos[0] > boss_pos[0]:
+                    fibis_pos[0] += 1
+                elif player_pos[0] < boss_pos[0]:
+                    fibis_pos[0] -= 1
+                if player_pos[1] > boss_pos[1]:
+                    fibis_pos[1] += 1
+                elif player_pos[1] < boss_pos[1]:
+                    fibis_pos[1] -= 1
+                screen.blit(fibis_image, (fibis_pos[0] * TILE_SIZE, fibis_pos[1] * TILE_SIZE))
+                if player_pos == fibis_pos:
+                    player_lives -= 1
+                    print("Jannik's Fibi hat dich getroffen!")
+        elif boss["ability"] == "long_range_attack":
+            if abs(player_pos[0] - boss_pos[0]) <= 5 or abs(player_pos[1] - boss_pos[1]) <= 5:
+                pygame.draw.line(screen, RED, (boss_screen_x + TILE_SIZE // 2, boss_screen_y + TILE_SIZE // 2), (screen_x + TILE_SIZE // 2, screen_y + TILE_SIZE // 2), 2)
+                if abs(player_pos[0] - boss_pos[0]) <= 1 and abs(player_pos[1] - boss_pos[1]) <= 1:
+                    player_lives -= 1
+                    print("Phillip hat dich aus großer Reichweite getroffen!")
+        elif boss["ability"] == "shoot_u_stahl":
+            if random.randint(0, 100) < 5:
+                u_stahl_image = pygame.image.load(os.path.join('assets', 'u_stahl.png'))
+                u_stahl_image = pygame.transform.scale(u_stahl_image, (TILE_SIZE, TILE_SIZE))
+                u_stahl_pos = boss_pos[:]
+                if player_pos[0] > boss_pos[0]:
+                    u_stahl_pos[0] += 1
+                elif player_pos[0] < boss_pos[0]:
+                    u_stahl_pos[0] -= 1
+                if player_pos[1] > boss_pos[1]:
+                    u_stahl_pos[1] += 1
+                elif player_pos[1] < boss_pos[1]:
+                    u_stahl_pos[1] -= 1
+                screen.blit(u_stahl_image, (u_stahl_pos[0] * TILE_SIZE, u_stahl_pos[1] * TILE_SIZE))
+                if player_pos == u_stahl_pos:
+                    player_lives -= 3
+                    print("Louis' U-Stahl hat dich getroffen! 3 Leben abgezogen!")
+
+    lives_text = font.render(f"Leben: {player_lives}", True, GREEN)
+    screen.blit(lives_text, (10, 10))
+
+    if shield_active:
+        shield_time_left = shield_duration - (time.time() - shield_timer)
+        if shield_time_left <= 0:
+            shield_active = False
+        print("Schutzschild deaktiviert!")
+
+        shield_text = font.render(f"Schutzschild: {shield_symbol} ({int(shield_time_left)}s)", True, GREEN)
+    else:
+        cooldown_time_left = shield_cooldown - (time.time() - shield_timer)
+        if cooldown_time_left <= 0:
+            shield_active = True
+            shield_timer = time.time()
+            cooldown_time_left = shield_cooldown
+        shield_text = font.render(f"Schutzschild bereit in: {int(cooldown_time_left)}s", True, RED)
+    screen.blit(shield_text, (10, 40))
+
+    if player_lives <= 0:
+        print("Du wurdest vom Boss erwischt! Spiel vorbei.")
+        time.sleep(3)
+        player_pos = [1, 1]
+        player_lives = 3
+        letters = []
+        for _ in range(20):
+            while True:
+                x = random.randint(1, MAZE_WIDTH - 2)
+                y = random.randint(1, MAZE_HEIGHT - 2)
+                if maze[y][x] == 0 and not any(l[0] == x and l[1] == y for l in letters):
+                    letters.append((x, y, random.choice("WEIDMUELLER")))
+                    break
+        start_time = time.time()
         screen.fill(BLACK)
-        for y in range(VIEWPORT_HEIGHT):
-            for x in range(VIEWPORT_WIDTH):
-                maze_x = Game.viewport_x + x
-                maze_y = Game.viewport_y + y
-                if maze_y < MAZE_HEIGHT and maze_x < MAZE_WIDTH and Game.maze[maze_y][maze_x] == 1:
-                    pygame.draw.rect(screen, WHITE, (x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE))
-        Game.player.draw(screen)
-        for boss in Game.bosses:
-            boss.draw(screen)
+        end_text = font.render("Du wurdest vom Boss erwischt!", True, RED)
+        screen.blit(end_text, (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 2))
         pygame.display.flip()
+        time.sleep(5)
+        continue
 
-if __name__ == "__main__":
-    Game.init()
-    controller = MyController(interface="/dev/input/js0", connecting_using_ds4drv=False)
-    controller_thread = controller.start()
-    running = True
-    while running:
-        try:
-            Game.update()
-            Game.draw()
-            clock.tick(30)
-        except Exception as e:
-            print(f"Fehler: {e}")
-            running = False
-    pygame.quit()
-    controller.stop()
+    if not letters:
+        running = False
+        print("Glückwunsch! Du hast alle Buchstaben gesammelt und das Spiel gewonnen!")
+        screen.fill(BLACK)
+        end_text = font.render(f"Du hast gesammelt: Hauptsitz von Weidmüller", True, GREEN)
+        screen.blit(end_text, (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 2))
+        pygame.display.flip()
+        time.sleep(35)
+        screen.fill(BLACK)
+        credits_text = font.render("Developer: Jannik, Tom", True, WHITE)
+        screen.blit(credits_text, (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 2 - 60))
+        design_text = font.render("Design: Louis, Jannik", True, WHITE)
+        screen.blit(design_text, (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 2))
+        ideas_text = font.render("Ideen: Phillip, Cora, Jannes, Chris, Laurin", True, WHITE)
+        screen.blit(ideas_text, (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 2 + 60))
+        pygame.display.flip()
+        time.sleep(10)
+
+    pygame.display.flip()
+    clock.tick(10)
+
+pygame.quit()
+controller.stop()
