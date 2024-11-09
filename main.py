@@ -468,8 +468,6 @@ for letter in letters:
         collected_text = font.render(f"Du hast gesammelt: Hauptsitz von Weidmüller", True, GREEN)
         screen.blit(collected_text, (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 2))
         screen.fill(BLACK)
-        end_text = font.render(f"Du hast gesammelt: Weidmüller Headquarters", True, GREEN)
-        screen.blit(end_text, (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 2))
         pygame.display.flip()
         time.sleep(35)
         screen.fill(BLACK)
