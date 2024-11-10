@@ -136,7 +136,13 @@ def character_selection():
                     waiting = False
     return selected_character
 
-player_image = player_images[character_selection()]
+selected_character = character_selection()
+if selected_character is not None:
+    player_image = player_images[selected_character]
+else:
+    print("Fehler bei der Charakterauswahl. Spiel wird beendet.")
+    pygame.quit()
+    exit()
 
 # Auswahlmenü für Bosse
 def boss_selection():
