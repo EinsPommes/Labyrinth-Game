@@ -211,14 +211,41 @@ def boss_ai(player_pos, boss_pos, maze):
     player_x, player_y = player_pos
     new_boss_x, new_boss_y = boss_x, boss_y
 
-    if player_x > boss_x and maze[boss_y][boss_x + 1] == 0:
-        new_boss_x += 1
-    elif player_x < boss_x and maze[boss_y][boss_x - 1] == 0:
-        new_boss_x -= 1
-    elif player_y > boss_y and maze[boss_y + 1][boss_x] == 0:
-        new_boss_y += 1
-    elif player_y < boss_y and maze[boss_y - 1][boss_x] == 0:
-        new_boss_y -= 1
+    # Verwende A*-Algorithmus für eine bessere Navigation
+    open_list = [(boss_x, boss_y)]
+    came_from = {}
+    g_score = {(x, y): float('inf') for y, row in enumerate(maze) for x, cell in enumerate(row)}
+    g_score[(boss_x, boss_y)] = 0
+    f_score = {(x, y): float('inf') for y, row in enumerate(maze) for x, cell in enumerate(row)}
+    f_score[(boss_x, boss_y)] = abs(player_x - boss_x) + abs(player_y - boss_y)
+
+    while open_list:
+        current = min(open_list, key=lambda pos: f_score[pos])
+        if current == (player_x, player_y):
+            break
+
+        open_list.remove(current)
+        current_x, current_y = current
+
+        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            neighbor = (current_x + dx, current_y + dy)
+            if 0 <= neighbor[0] < MAZE_WIDTH and 0 <= neighbor[1] < MAZE_HEIGHT and maze[neighbor[1]][neighbor[0]] == 0:
+                tentative_g_score = g_score[current] + 1
+                if tentative_g_score < g_score[neighbor]:
+                    came_from[neighbor] = current
+                    g_score[neighbor] = tentative_g_score
+                    f_score[neighbor] = tentative_g_score + abs(player_x - neighbor[0]) + abs(player_y - neighbor[1])
+                    if neighbor not in open_list:
+                        open_list.append(neighbor)
+
+    if (player_x, player_y) in came_from:
+        path = []
+        current = (player_x, player_y)
+        while current != (boss_x, boss_y):
+            path.append(current)
+            current = came_from[current]
+        if len(path) > 1:
+            new_boss_x, new_boss_y = path[-2]
 
     return [new_boss_x, new_boss_y]
 
@@ -323,7 +350,7 @@ while running:
                 pygame.draw.rect(screen, WHITE, (x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE))
 
     font = pygame.font.Font(None, 36)
-    collected_letters = ''.join(sorted(set(char for char in all_letters if char not in [l[2] for l in letters])))
+    collected_letters = ''.join(sorted(set(char for char in "HAUPTSITZVONWEIDMUELLER" if char not in [l[2] for l in letters])))
     collected_text = font.render(f"Gesammelt: {collected_letters}", True, ORANGE)
     timer_text = font.render(f"Zeit: {int(timer_duration - elapsed_time)}s", True, ORANGE)
     screen.blit(timer_text, (10, 100))
