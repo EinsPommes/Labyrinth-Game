@@ -4,6 +4,7 @@ import time
 from pygame.locals import *
 import os
 from pyPS4Controller.controller import Controller
+import threading
 
 TILE_SIZE = 40
 MAZE_WIDTH = 30
@@ -100,7 +101,6 @@ class MyController(Controller):
             player_pos[0] += player_speed
 
 controller = MyController(interface="/dev/input/js0", connecting_using_ds4drv=False)
-import threading
 controller_thread = threading.Thread(target=controller.listen, daemon=True)
 controller_thread.start()
 
@@ -123,7 +123,7 @@ def character_selection():
     waiting = True
     selected_character = None
     while waiting:
-            for event in pygame.event.get():
+        for event in pygame.event.get():
             if event.type == KEYDOWN:
                 if event.key == K_1:
                     selected_character = 0
@@ -201,17 +201,14 @@ louis_spawned = False
 
 # Boss KI für Verfolgung des Spielers
 def boss_ai(player_pos, boss_pos, maze):
-    # Verfolgt den Spieler durch eine einfache Wegfindungsstrategie
     boss_x, boss_y = boss_pos
     player_x, player_y = player_pos
     new_boss_x, new_boss_y = boss_x, boss_y
 
-    # Priorität auf horizontale Bewegung, um den Spieler zu verfolgen
     if player_x > boss_x and maze[boss_y][boss_x + 1] == 0:
         new_boss_x += 1
     elif player_x < boss_x and maze[boss_y][boss_x - 1] == 0:
         new_boss_x -= 1
-    # Falls horizontale Bewegung nicht möglich, vertikal bewegen
     elif player_y > boss_y and maze[boss_y + 1][boss_x] == 0:
         new_boss_y += 1
     elif player_y < boss_y and maze[boss_y - 1][boss_x] == 0:
@@ -243,8 +240,8 @@ def display_instructions():
     pygame.display.flip()
     waiting = True
     while waiting:
-    for event in pygame.event.get():
-        if event.type == KEYDOWN or event.type == MOUSEBUTTONDOWN or event.type == JOYBUTTONDOWN:
+        for event in pygame.event.get():
+            if event.type == KEYDOWN or event.type == MOUSEBUTTONDOWN or event.type == JOYBUTTONDOWN:
                 waiting = False
 
 # Generiere das Labyrinth
@@ -300,17 +297,8 @@ while running:
     if elapsed_time >= timer_duration:
         print("Die Zeit ist abgelaufen! Du hast verloren.")
         time.sleep(3)
-        player_pos = [1, 1]
-        player_lives = 3
-        letters = []
-        for _ in range(20):
-            while True:
-                x = random.randint(1, MAZE_WIDTH - 2)
-                y = random.randint(1, MAZE_HEIGHT - 2)
-                if maze[y][x] == 0 and not any(l[0] == x and l[1] == y for l in letters):
-                    letters.append((x, y, random.choice("HAUPTSITZVONWEIDMUELLER")))
-                    break
-        start_time = time.time()
+        running = False
+        break
 
     if not louis_spawned and elapsed_time >= timer_duration - 5 * 60:
         boss_positions.append([random.randint(1, MAZE_WIDTH - 2), random.randint(1, MAZE_HEIGHT - 2)])
@@ -331,36 +319,31 @@ while running:
     collected_letters = ''.join(sorted(set(char for _, _, char in letters if char not in "HAUPTSITZVONWEIDMUELLER")))
     collected_text = font.render(f"Gesammelt: {collected_letters}", True, GREEN)
     screen.blit(collected_text, (10, 70))
-    collected_letters_count = {}
-for letter in letters:
-    x, y, char = letter
-    color = CORRECT_LETTER_COLOR if char in "HAUPTSITZVONWEIDMUELLER" else WRONG_LETTER_COLOR
-    if player_pos[0] == x and player_pos[1] == y:
-        letters.remove(letter)
-        print(f"Buchstabe {char} eingesammelt!")
-        if char not in collected_letters_count:
-            collected_letters_count[char] = 1
-        else:
-            collected_letters_count[char] += 1
 
-        # Boost aktivieren, wenn der gleiche Buchstabe 3 Mal eingesammelt wurde
-        if collected_letters_count[char] == 3:
-            boost_active = True
-            boost_timer = time.time()
-            player_speed = boost_speed
-            print(f"Boost aktiviert durch das Sammeln von 3x {char}!")
-        if viewport_x <= x < viewport_x + VIEWPORT_WIDTH and viewport_y <= y < viewport_y + VIEWPORT_HEIGHT:
-            screen_x = (x - viewport_x) * TILE_SIZE
-            screen_y = (y - viewport_y) * TILE_SIZE
-            text = font.render(char, True, color)
-            screen.blit(text, (screen_x + TILE_SIZE // 4, screen_y + TILE_SIZE // 4))
+    for letter in letters[:]:
+        x, y, char = letter
+        color = CORRECT_LETTER_COLOR if char in "HAUPTSITZVONWEIDMUELLER" else WRONG_LETTER_COLOR
+        if player_pos[0] == x and player_pos[1] == y:
+            letters.remove(letter)
+            print(f"Buchstabe {char} eingesammelt!")
+
+        screen_x = (x - viewport_x) * TILE_SIZE
+        screen_y = (y - viewport_y) * TILE_SIZE
+        text = font.render(char, True, color)
+        screen.blit(text, (screen_x + TILE_SIZE // 4, screen_y + TILE_SIZE // 4))
 
     screen_x = (player_pos[0] - viewport_x) * TILE_SIZE
     screen_y = (player_pos[1] - viewport_y) * TILE_SIZE
     screen.blit(player_image, (screen_x, screen_y))
 
     if boost_active:
-        screen.blit(boost_symbol_image, (screen_x, screen_y))  # Zeige leuchtendes Symbol über dem Spieler bei Boost
+        boost_time_left = boost_duration - (time.time() - boost_timer)
+        if boost_time_left <= 0:
+            boost_active = False
+            player_speed = normal_speed
+            print("Boost deaktiviert!")
+        else:
+            screen.blit(boost_symbol_image, (screen_x, screen_y))  # Zeige leuchtendes Symbol über dem Spieler bei Boost
 
     for i, boss_pos in enumerate(boss_positions):
         if i < len(boss_positions) - 1:
@@ -427,63 +410,43 @@ for letter in letters:
         shield_time_left = shield_duration - (time.time() - shield_timer)
         if shield_time_left <= 0:
             shield_active = False
-            shield_timer = time.time()
         shield_text = font.render(f"Schutzschild: {shield_symbol} ({int(shield_time_left)}s)", True, GREEN)
     else:
         cooldown_time_left = shield_cooldown - (time.time() - shield_timer)
         if cooldown_time_left <= 0:
-            shield_active = True
-            shield_timer = time.time()
-            cooldown_time_left = shield_cooldown
+            cooldown_time_left = 0
         shield_text = font.render(f"Schutzschild bereit in: {int(cooldown_time_left)}s", True, RED)
     screen.blit(shield_text, (10, 40))
-
-    if boost_active:
-        boost_time_left = boost_duration - (time.time() - boost_timer)
-        if boost_time_left <= 0:
-            boost_active = False
-            player_speed = normal_speed
-            print("Boost deaktiviert!")
 
     if player_lives <= 0:
         print("Du wurdest vom Boss erwischt! Spiel vorbei.")
         time.sleep(3)
-        player_pos = [1, 1]
-        player_lives = 3
-        letters = []
-        for _ in range(20):
-            while True:
-                x = random.randint(1, MAZE_WIDTH - 2)
-                y = random.randint(1, MAZE_HEIGHT - 2)
-                if maze[y][x] == 0 and not any(l[0] == x and l[1] == y for l in letters):
-                    letters.append((x, y, random.choice("WEIDMUELLER")))
-                    break
-        start_time = time.time()
-        screen.fill(BLACK)
-        end_text = font.render("Du wurdest vom Boss erwischt!", True, RED)
-        screen.blit(end_text, (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 2))
-        pygame.display.flip()
-        time.sleep(5)
-        continue
+        running = False
+        display_credits()
 
-        print("Glückwunsch! Du hast alle Buchstaben gesammelt und das Spiel gewonnen!")
-        collected_text = font.render(f"Du hast gesammelt: Hauptsitz von Weidmüller", True, GREEN)
-        screen.blit(collected_text, (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 2))
-        screen.fill(BLACK)
-        pygame.display.flip()
-        time.sleep(35)
-        screen.fill(BLACK)
-        credits_text = font.render("Developer: Jannik, Tom", True, WHITE)
-        screen.blit(credits_text, (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 2 - 60))
-        design_text = font.render("Design: Louis, Jannik", True, WHITE)
-        screen.blit(design_text, (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 2))
-        ideas_text = font.render("Ideen: Phillip, Cora, Jannes, Chris, Laurin", True, WHITE)
-        screen.blit(ideas_text, (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 2 + 60))
-        pygame.display.flip()
-        time.sleep(10)
+    if not letters:
+        print("Glückwunsch! Du hast das Lösungswort gefunden und das Spiel gewonnen!")
+        running = False
+        display_credits()
 
     pygame.display.flip()
     clock.tick(10)
+
+def display_credits():
+    screen.fill(BLACK)
+    font = pygame.font.Font(None, 36)
+    credits = [
+        "Entwickler: Jannik, Tom",
+        "Design: Louis, Jannik",
+        "Ideen: Phillip, Cora, Jannes, Chris, Laurin"
+    ]
+    y_offset = SCREEN_HEIGHT // 2 - 60
+    for line in credits:
+        text = font.render(line, True, WHITE)
+        screen.blit(text, (SCREEN_WIDTH // 4, y_offset))
+        y_offset += 50
+    pygame.display.flip()
+    time.sleep(10)
 
 pygame.quit()
 controller.stop()
