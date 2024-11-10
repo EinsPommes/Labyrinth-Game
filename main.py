@@ -243,8 +243,8 @@ def display_instructions():
     pygame.display.flip()
     waiting = True
     while waiting:
-        for event in pygame.event.get():
-            if event.type == KEYDOWN or event.type == MOUSEBUTTONDOWN:
+    for event in pygame.event.get():
+        if event.type == KEYDOWN or event.type == MOUSEBUTTONDOWN or event.type == JOYBUTTONDOWN:
                 waiting = False
 
 # Generiere das Labyrinth
