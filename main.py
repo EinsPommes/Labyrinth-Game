@@ -322,8 +322,8 @@ while running:
                 pygame.draw.rect(screen, WHITE, (x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE))
 
     font = pygame.font.Font(None, 36)
-    collected_letters = ''.join(sorted(set(char for _, _, char in letters if char not in "HAUPTSITZVONWEIDMUELLER")))
-    collected_text = font.render(f"Gesammelt: {collected_letters}", True, GREEN)
+    collected_letters = ''.join(sorted(set(char for _, _, char in all_letters if char not in [l[2] for l in letters])))
+    collected_text = font.render(f"Gesammelt: {collected_letters}", True, ORANGE)
     screen.blit(collected_text, (10, 70))
 
     for letter in letters[:]:
