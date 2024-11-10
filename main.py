@@ -123,7 +123,7 @@ def character_selection():
     waiting = True
     selected_character = None
     while waiting:
-        for event in pygame.event.get():
+            for event in pygame.event.get():
             if event.type == KEYDOWN:
                 if event.key == K_1:
                     selected_character = 0
