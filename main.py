@@ -281,8 +281,9 @@ maze = generate_maze(MAZE_WIDTH, MAZE_HEIGHT)
 maze[player_pos[1]][player_pos[0]] = 0
 
 letters = []
-all_letters = list("HAUPTSITZVONWEIDMUELLER")
-for letter in all_letters:
+all_letters = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+for _ in range(50):
+    letter = random.choice(all_letters)
     while True:
         x = random.randint(1, MAZE_WIDTH - 2)
         y = random.randint(1, MAZE_HEIGHT - 2)
@@ -322,8 +323,10 @@ while running:
                 pygame.draw.rect(screen, WHITE, (x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE))
 
     font = pygame.font.Font(None, 36)
-    collected_letters = ''.join(sorted(set(char for _, _, char in all_letters if char not in [l[2] for l in letters])))
+    collected_letters = ''.join(sorted(set(char for char in all_letters if char not in [l[2] for l in letters])))
     collected_text = font.render(f"Gesammelt: {collected_letters}", True, ORANGE)
+    timer_text = font.render(f"Zeit: {int(timer_duration - elapsed_time)}s", True, ORANGE)
+    screen.blit(timer_text, (10, 100))
     screen.blit(collected_text, (10, 70))
 
     for letter in letters[:]:
