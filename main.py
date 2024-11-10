@@ -100,6 +100,7 @@ class MyController(Controller):
             player_pos[0] += player_speed
 
 controller = MyController(interface="/dev/input/js0", connecting_using_ds4drv=False)
+import threading
 controller_thread = threading.Thread(target=controller.listen, daemon=True)
 controller_thread.start()
 
