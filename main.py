@@ -161,7 +161,7 @@ class Player:
                 dy = self.speed
             
             # X-Taste für Interaktion
-            if joystick.get_button(1):  # X-Button (PS4)
+            if joystick.get_button(0):  # X-Button (PS4)
                 self.interaction_cooldown = 30  # Setzt den Cooldown
         
         if dx != 0 or dy != 0:
@@ -494,7 +494,7 @@ class LanguageMenu:
             
             # Controller-Eingaben
             elif event.type == JOYBUTTONDOWN:
-                if event.button == 1:  # X-Button (PS4)
+                if event.button == 0:  # X-Button (PS4)
                     return self.languages[self.selected_index]
             elif event.type == JOYAXISMOTION:
                 if current_time - self.last_joy_time > self.joy_delay:
@@ -572,7 +572,6 @@ class CharacterMenu:
         self.menu_options[self.selected_index].is_selected = True
         
         # Controller Setup
-        pygame.joystick.init()
         self.joysticks = [pygame.joystick.Joystick(i) for i in range(pygame.joystick.get_count())]
         for joystick in self.joysticks:
             joystick.init()
@@ -604,7 +603,7 @@ class CharacterMenu:
             
             # Controller-Eingaben
             elif event.type == JOYBUTTONDOWN:
-                if event.button == 1:  # X-Button (PS4)
+                if event.button == 0:  # X-Button (PS4)
                     return self.character_names[self.selected_index]
             elif event.type == JOYAXISMOTION:
                 if current_time - self.last_joy_time > self.joy_delay:
@@ -982,7 +981,6 @@ def show_menu(screen, clock, language):
     selected_index = 0
     
     # Controller Setup
-    pygame.joystick.init()
     joysticks = [pygame.joystick.Joystick(i) for i in range(pygame.joystick.get_count())]
     for joystick in joysticks:
         joystick.init()
@@ -998,7 +996,7 @@ def show_menu(screen, clock, language):
             if event.type == QUIT:
                 pygame.quit()
                 sys.exit()
-                
+            
             # Tastatureingaben
             if event.type == KEYDOWN:
                 if event.key == K_UP:
@@ -1010,7 +1008,7 @@ def show_menu(screen, clock, language):
             
             # Controller-Eingaben
             elif event.type == JOYBUTTONDOWN:
-                if event.button == 1:  # X-Button (PS4)
+                if event.button == 0:  # X-Button (PS4)
                     return difficulties[selected_index]
             elif event.type == JOYAXISMOTION:
                 if current_time - last_joy_time > joy_delay:
@@ -1065,9 +1063,19 @@ def show_menu(screen, clock, language):
         clock.tick(60)
 
 def main():
-    screen = pygame.display.set_mode((DISPLAY_WIDTH, DISPLAY_HEIGHT))
-    pygame.display.set_caption('Weidmüller Escape Room Labyrinth')
+    pygame.init()
+    pygame.joystick.init()
+    
+    # Vollbildmodus aktivieren
+    screen = pygame.display.set_mode((DISPLAY_WIDTH, DISPLAY_HEIGHT), pygame.FULLSCREEN)
+    pygame.display.set_caption("Escape Room Labyrinth")
+    
     clock = pygame.time.Clock()
+    
+    # Controller initialisieren
+    joysticks = [pygame.joystick.Joystick(i) for i in range(pygame.joystick.get_count())]
+    for joystick in joysticks:
+        joystick.init()
     
     # Load images
     player_images, boss_images, wall_img, path_img = load_images()
@@ -1081,98 +1089,12 @@ def main():
     while True:  
         difficulty = show_menu(screen, clock, language)
         
-        walls, paths = create_maze()
-        player = Player(CELL_SIZE * 1.5, CELL_SIZE * 1.5, player_images[character])
-        letters = create_letters(difficulty)
-        collection_display = CollectionDisplay(language)
-        timer = Timer(DIFFICULTY_SETTINGS[difficulty]['time_limit'])
+        # Spiel starten
+        game_surface = pygame.Surface((DISPLAY_WIDTH, DISPLAY_HEIGHT))
+        game_over = play_game(screen, game_surface, clock, difficulty, player_images[character], boss_images, wall_img, path_img, language)
         
-        # Create bosses with different spawn times
-        bosses = create_bosses(difficulty, boss_images)
-        
-        game_over = False
-        game_over_reason = ""
-        all_letters_collected = False
-        restart_game = False
-        
-        start_time = time.time()
-        while not restart_game:
-            for event in pygame.event.get():
-                if event.type == QUIT:
-                    pygame.quit()
-                    sys.exit()
-                
-                if game_over:
-                    if event.type == KEYDOWN and event.key == K_RETURN:
-                        restart_game = True
-            
-            timer.update()
-            
-            if not game_over:
-                # Handle player movement
-                player.handle_input(walls)
-                
-                elapsed_time = time.time() - start_time
-                for boss in bosses:
-                    if elapsed_time >= boss.spawn_time:
-                        boss.active = True
-                    boss.update(player, walls)
-                
-                if check_boss_collision(player, bosses):
-                    game_over = True
-                    game_over_reason = 'caught_by_boss'
-                
-                check_letter_collection(player, letters, collection_display)
-                
-                if len(letters) == 0:
-                    game_over = True
-                    game_over_reason = 'win'
-                    print("Spiel gewonnen!")  # Debug
-                
-                if timer.remaining_seconds <= 0:
-                    game_over = True
-                    game_over_reason = 'time_up'
-                
-            draw_game(screen, walls, player, bosses, letters, collection_display, timer, language, difficulty, game_over, game_over_reason, paths, wall_img, path_img, boss_images)
-        
-        # If we get here, the game is restarting
-        if game_over_reason == 'win':
-            # Draw semi-transparent overlay
-            overlay = pygame.Surface((DISPLAY_WIDTH, DISPLAY_HEIGHT))
-            overlay.set_alpha(128)
-            overlay.fill(BLACK)
-            screen.blit(overlay, (0, 0))
-            
-            # Draw win text
-            font = pygame.font.Font(None, 74)
-            text = font.render("Escape Successful!", True, GREEN)
-            text_rect = text.get_rect(center=(DISPLAY_WIDTH // 2, DISPLAY_HEIGHT // 2 - 100))
-            screen.blit(text, text_rect)
-            
-            # Draw question and answer
-            question = font.render("Wo ist der Hauptsitz von Weidmüller?", True, WHITE)
-            answer = font.render("DETMOLD", True, WHITE)
-            
-            question_rect = question.get_rect(center=(DISPLAY_WIDTH // 2, DISPLAY_HEIGHT // 2))
-            answer_rect = answer.get_rect(center=(DISPLAY_WIDTH // 2, DISPLAY_HEIGHT // 2 + 100))
-            
-            screen.blit(question, question_rect)
-            screen.blit(answer, answer_rect)
-            
-            pygame.display.flip()
-            
-            # Warte 5 Sekunden oder bis Enter gedrückt wird
-            start_time = time.time()
-            waiting = True
-            while waiting and time.time() - start_time < 5:
-                for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        pygame.quit()
-                        sys.exit()
-                    elif event.type == pygame.KEYDOWN:
-                        if event.key == pygame.K_RETURN:
-                            waiting = False
-                clock.tick(60)
+        if game_over:
+            show_game_over(screen, clock, game_over, language)
 
 if __name__ == '__main__':
     main()
