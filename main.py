@@ -453,67 +453,103 @@ class Timer:
         text_rect = text.get_rect(bottomright=(DISPLAY_WIDTH - 20, DISPLAY_HEIGHT - 20))
         screen.blit(text, text_rect)
 
-class LanguageSelector:
+class LanguageMenu:
     def __init__(self, screen, clock):
         self.screen = screen
         self.clock = clock
-        self.languages = ['en', 'de']
+        self.languages = ['de', 'en']
         self.selected_index = 0
-        self.font = pygame.font.Font(None, 48)
-
-    def show(self):
-        selecting = True
-        while selecting:
-            for event in pygame.event.get():
-                if event.type == QUIT:
-                    pygame.quit()
-                    sys.exit()
-                elif event.type == KEYDOWN:
-                    if event.key == K_UP:
-                        self.selected_index = (self.selected_index - 1) % len(self.languages)
-                    elif event.key == K_DOWN:
-                        self.selected_index = (self.selected_index + 1) % len(self.languages)
-                    elif event.key == K_RETURN:
-                        selecting = False
-                elif event.type == JOYBUTTONDOWN and event.button == 0:  
-                    selecting = False
-                elif event.type == JOYAXISMOTION:
-                    if event.axis == 1:
-                        if event.value < -0.5:
-                            self.selected_index = (self.selected_index - 1) % len(self.languages)
-                        elif event.value > 0.5:
+        
+        # Controller Setup
+        pygame.joystick.init()
+        self.joysticks = [pygame.joystick.Joystick(i) for i in range(pygame.joystick.get_count())]
+        for joystick in self.joysticks:
+            joystick.init()
+        
+        # Zeitverzögerung für Joystick-Eingaben
+        self.last_joy_time = 0
+        self.joy_delay = 200  # Millisekunden
+    
+    def handle_input(self):
+        current_time = pygame.time.get_ticks()
+        
+        for event in pygame.event.get():
+            if event.type == QUIT:
+                pygame.quit()
+                sys.exit()
+            
+            # Tastatureingaben
+            if event.type == KEYDOWN:
+                if event.key == K_UP:
+                    self.selected_index = (self.selected_index - 1) % len(self.languages)
+                elif event.key == K_DOWN:
+                    self.selected_index = (self.selected_index + 1) % len(self.languages)
+                elif event.key in (K_RETURN, K_SPACE):
+                    return self.languages[self.selected_index]
+            
+            # Controller-Eingaben
+            elif event.type == JOYBUTTONDOWN:
+                if event.button == 1:  # X-Button (PS4)
+                    return self.languages[self.selected_index]
+            elif event.type == JOYAXISMOTION:
+                if current_time - self.last_joy_time > self.joy_delay:
+                    if event.axis == 1:  # Vertikale Achse
+                        if event.value > 0.5:  # Nach unten
                             self.selected_index = (self.selected_index + 1) % len(self.languages)
-
+                            self.last_joy_time = current_time
+                        elif event.value < -0.5:  # Nach oben
+                            self.selected_index = (self.selected_index - 1) % len(self.languages)
+                            self.last_joy_time = current_time
+            elif event.type == JOYHATMOTION:
+                if current_time - self.last_joy_time > self.joy_delay:
+                    hat = event.value
+                    if hat[1] == 1:  # Nach oben
+                        self.selected_index = (self.selected_index - 1) % len(self.languages)
+                        self.last_joy_time = current_time
+                    elif hat[1] == -1:  # Nach unten
+                        self.selected_index = (self.selected_index + 1) % len(self.languages)
+                        self.last_joy_time = current_time
+        
+        return None
+    
+    def run(self):
+        while True:
+            result = self.handle_input()
+            if result is not None:
+                return result
+            
             self.screen.fill(BLACK)
             
-            title_font = pygame.font.Font(None, 64)
-            for lang in self.languages:
-                title = title_font.render(TRANSLATIONS[lang]['select_language'], True, WHITE)
-                title_rect = title.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT//4))
-                self.screen.blit(title, title_rect)
-                break  
-
+            # Titel
+            title_font = pygame.font.Font(None, 74)
+            title = title_font.render('Select Language', True, WHITE)
+            title_rect = title.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT//4))
+            self.screen.blit(title, title_rect)
+            
+            # Sprachoptionen
             for i, lang in enumerate(self.languages):
                 color = WHITE if i == self.selected_index else GRAY
-                text = self.font.render(TRANSLATIONS[lang]['language_name'], True, color)
+                text = pygame.font.Font(None, 48).render(TRANSLATIONS[lang]['language_name'], True, color)
                 rect = text.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT//2 + i * 60))
                 
                 if i == self.selected_index:
                     pygame.draw.rect(self.screen, color, rect.inflate(20, 10), 2)
                 
                 self.screen.blit(text, rect)
-
-            instruction_font = pygame.font.Font(None, 36)
-            for lang in self.languages:
-                instruction = instruction_font.render(TRANSLATIONS[lang]['press_to_select'], True, GRAY)
-                instruction_rect = instruction.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT * 3//4))
-                self.screen.blit(instruction, instruction_rect)
-                break  
-
+            
+            # Steuerungshinweise
+            hint_font = pygame.font.Font(None, 36)
+            keyboard_hint = hint_font.render('Press ENTER to select', True, GRAY)
+            controller_hint = hint_font.render('Press X button to select', True, GRAY)
+            
+            keyboard_rect = keyboard_hint.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT * 3//4))
+            controller_rect = controller_hint.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT * 3//4 + 40))
+            
+            self.screen.blit(keyboard_hint, keyboard_rect)
+            self.screen.blit(controller_hint, controller_rect)
+            
             pygame.display.flip()
             self.clock.tick(60)
-
-        return self.languages[self.selected_index]
 
 class CharacterMenu:
     def __init__(self, screen, clock, language):
@@ -990,8 +1026,8 @@ def main():
     # Load images
     player_images, boss_images, wall_img, path_img = load_images()
     
-    language_selector = LanguageMenu(screen, clock)
-    language = language_selector.run()
+    language_menu = LanguageMenu(screen, clock)
+    language = language_menu.run()
     
     character_menu = CharacterMenu(screen, clock, language)
     character = character_menu.run()
