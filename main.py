@@ -500,15 +500,19 @@ class MenuOption:
     def __init__(self, text, position, size=(200, 50)):
         self.text = text
         self.rect = pygame.Rect(position[0], position[1], size[0], size[1])
+        self.pos = position  # Position für zentrierte Textdarstellung
         self.is_selected = False
         self.font = pygame.font.Font(None, 48)
 
     def draw(self, screen):
         color = WHITE if self.is_selected else GRAY
-        pygame.draw.rect(screen, color, self.rect, 2)
-        text_surface = self.font.render(self.text, True, color)
-        text_rect = text_surface.get_rect(center=self.rect.center)
-        screen.blit(text_surface, text_rect)
+        text = self.font.render(self.text, True, color)
+        text_rect = text.get_rect(center=self.pos)
+        
+        if self.is_selected:
+            pygame.draw.rect(screen, color, text_rect.inflate(20, 10), 2)
+        
+        screen.blit(text, text_rect)
 
 def show_character_menu(screen, clock, language):
     # Definiere die Charakternamen direkt
