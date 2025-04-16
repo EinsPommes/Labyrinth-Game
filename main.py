@@ -1145,13 +1145,33 @@ def show_game_over(screen, clock, game_over_reason, language):
         text = TRANSLATIONS[language]['game_over']
     
     text_surface = font.render(text, True, WHITE)
-    text_rect = text_surface.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT//2))
+    text_rect = text_surface.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT//3))
+    
+    # Bei Gewinn zeige das Lösungswort und die Frage an
+    if game_over_reason == 'win':
+        # Zeige die Frage
+        question_font = pygame.font.Font(None, 48)
+        question_text = TRANSLATIONS[language]['question']
+        question_surface = question_font.render(question_text, True, WHITE)
+        question_rect = question_surface.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT//2))
+        
+        # Zeige "Die Antwort ist:"
+        answer_label_font = pygame.font.Font(None, 36)
+        answer_label = TRANSLATIONS[language]['answer']
+        answer_label_surface = answer_label_font.render(answer_label, True, WHITE)
+        answer_label_rect = answer_label_surface.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT//2 + 40))
+        
+        # Zeige das Lösungswort
+        answer_font = pygame.font.Font(None, 64)
+        answer_text = "DETMOLD"
+        answer_surface = answer_font.render(answer_text, True, YELLOW)
+        answer_rect = answer_surface.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT//2 + 80))
     
     # Hinweis zum Neustart
     hint_font = pygame.font.Font(None, 36)
     hint_text = TRANSLATIONS[language]['press_to_restart']
     hint_surface = hint_font.render(hint_text, True, GRAY)
-    hint_rect = hint_surface.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT * 3//4))
+    hint_rect = hint_surface.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT * 4//5))
     
     waiting = True
     while waiting:
@@ -1168,6 +1188,13 @@ def show_game_over(screen, clock, game_over_reason, language):
         
         screen.fill(BLACK)
         screen.blit(text_surface, text_rect)
+        
+        # Zeige Frage und Antwort nur bei Gewinn
+        if game_over_reason == 'win':
+            screen.blit(question_surface, question_rect)
+            screen.blit(answer_label_surface, answer_label_rect)
+            screen.blit(answer_surface, answer_rect)
+        
         screen.blit(hint_surface, hint_rect)
         pygame.display.flip()
         clock.tick(60)
