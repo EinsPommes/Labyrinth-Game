@@ -555,11 +555,6 @@ def show_character_menu(screen, clock, language):
 def create_maze():
     walls = []
     paths = []  # Liste für Wege hinzugefügt
-    wall_img = pygame.Surface((CELL_SIZE, CELL_SIZE))
-    wall_img.fill(GRAY)
-    path_img = pygame.Surface((CELL_SIZE, CELL_SIZE))
-    path_img.fill(BLACK)
-    
     for y in range(len(MAZE_LAYOUT)):
         for x in range(len(MAZE_LAYOUT[0])):
             pos_x = x * CELL_SIZE
@@ -568,12 +563,12 @@ def create_maze():
             if MAZE_LAYOUT[y][x] == 1:  # Wand
                 walls.append({
                     'pos': (pos_x, pos_y),
-                    'rect': pygame.Rect(pos_x + GAME_OFFSET_X, pos_y + GAME_OFFSET_Y, CELL_SIZE, CELL_SIZE)
+                    'rect': pygame.Rect(pos_x, pos_y, CELL_SIZE, CELL_SIZE)  # Ohne GAME_OFFSET
                 })
             else:  # Weg
                 paths.append({
                     'pos': (pos_x, pos_y),
-                    'rect': pygame.Rect(pos_x + GAME_OFFSET_X, pos_y + GAME_OFFSET_Y, CELL_SIZE, CELL_SIZE)
+                    'rect': pygame.Rect(pos_x, pos_y, CELL_SIZE, CELL_SIZE)  # Ohne GAME_OFFSET
                 })
     
     return walls, paths
@@ -649,51 +644,98 @@ def create_letters(difficulty):
 
 def check_letter_collection(player, letters, collection_display):
     for letter in letters[:]:  # Kopie der Liste zum Iterieren
-        if not letter['collected'] and player.rect.colliderect(pygame.Rect(letter['x'] + GAME_OFFSET_X, letter['y'] + GAME_OFFSET_Y, LETTER_SIZE, LETTER_SIZE)):
+        letter_rect = pygame.Rect(
+            letter['x'] + GAME_OFFSET_X,
+            letter['y'] + GAME_OFFSET_Y,
+            LETTER_SIZE,
+            LETTER_SIZE
+        )
+        if not letter['collected'] and player.rect.colliderect(letter_rect):
             letter['collected'] = True
             collection_display.add_letter(letter['char'])
             letters.remove(letter)
-            print(f"Füge Buchstabe hinzu: {letter['char']}")
+            print(f"Buchstabe gesammelt: {letter['char']}")  # Debug
 
 def check_boss_collision(player, bosses):
+    player_rect = pygame.Rect(
+        player.rect.x + GAME_OFFSET_X,
+        player.rect.y + GAME_OFFSET_Y,
+        player.rect.width,
+        player.rect.height
+    )
+    
     for boss in bosses:
-        if boss.active and player.rect.colliderect(boss.rect):
+        if not boss.active:
+            continue
+            
+        boss_rect = pygame.Rect(
+            boss.rect.x + GAME_OFFSET_X,
+            boss.rect.y + GAME_OFFSET_Y,
+            boss.rect.width,
+            boss.rect.height
+        )
+        
+        if player_rect.colliderect(boss_rect):
             return True
+    
     return False
 
 def load_images():
-    # Lade Spieler-Bilder
-    player_images = {
-        'Jonas': pygame.Surface((PLAYER_SIZE, PLAYER_SIZE)),
-        'Robert': pygame.Surface((PLAYER_SIZE, PLAYER_SIZE)),
-        'Sebastian': pygame.Surface((PLAYER_SIZE, PLAYER_SIZE))
-    }
-    
-    # Setze Farben für Spieler
-    player_images['Jonas'].fill(BLUE)
-    player_images['Robert'].fill(GREEN)
-    player_images['Sebastian'].fill(YELLOW)
+    # Lade die Spielerbilder
+    player_images = {}
+    try:
+        player_images = {
+            'Jonas': pygame.transform.scale(pygame.image.load('images/jonas.png'), (PLAYER_SIZE, PLAYER_SIZE)),
+            'Robert': pygame.transform.scale(pygame.image.load('images/robert.png'), (PLAYER_SIZE, PLAYER_SIZE)),
+            'Sebastian': pygame.transform.scale(pygame.image.load('images/sebastian.png'), (PLAYER_SIZE, PLAYER_SIZE))
+        }
+    except:
+        print("Warnung: Spielerbilder konnten nicht geladen werden, verwende Ersatzbilder")
+        # Ersatzbilder
+        player_images = {
+            'Jonas': pygame.Surface((PLAYER_SIZE, PLAYER_SIZE)),
+            'Robert': pygame.Surface((PLAYER_SIZE, PLAYER_SIZE)),
+            'Sebastian': pygame.Surface((PLAYER_SIZE, PLAYER_SIZE))
+        }
+        player_images['Jonas'].fill(BLUE)
+        player_images['Robert'].fill(GREEN)
+        player_images['Sebastian'].fill(YELLOW)
     
     # Lade Boss-Bilder
-    boss_images = {
-        'red': pygame.Surface((BOSS_SIZE, BOSS_SIZE)),
-        'blue': pygame.Surface((BOSS_SIZE, BOSS_SIZE)),
-        'green': pygame.Surface((BOSS_SIZE, BOSS_SIZE)),
-        'purple': pygame.Surface((BOSS_SIZE, BOSS_SIZE))
-    }
-    
-    # Setze Farben für Bosse
-    boss_images['red'].fill(RED)
-    boss_images['blue'].fill(BLUE)
-    boss_images['green'].fill(GREEN)
-    boss_images['purple'].fill(PURPLE)
-    
-    # Erstelle Wand- und Weg-Bilder
-    wall_img = pygame.Surface((CELL_SIZE, CELL_SIZE))
-    wall_img.fill(GRAY)
-    
-    path_img = pygame.Surface((CELL_SIZE, CELL_SIZE))
-    path_img.fill(BLACK)
+    boss_images = {}
+    try:
+        boss_images = {
+            'red': pygame.transform.scale(pygame.image.load('images/louis.png'), (BOSS_SIZE, BOSS_SIZE)),
+            'blue': pygame.transform.scale(pygame.image.load('images/jannik.png'), (BOSS_SIZE, BOSS_SIZE)),
+            'green': pygame.transform.scale(pygame.image.load('images/tom.png'), (BOSS_SIZE, BOSS_SIZE)),
+            'purple': pygame.transform.scale(pygame.image.load('images/phillip.png'), (BOSS_SIZE, BOSS_SIZE))
+        }
+    except:
+        print("Warnung: Boss-Bilder konnten nicht geladen werden, verwende Ersatzbilder")
+        # Ersatzbilder
+        boss_images = {
+            'red': pygame.Surface((BOSS_SIZE, BOSS_SIZE)),
+            'blue': pygame.Surface((BOSS_SIZE, BOSS_SIZE)),
+            'green': pygame.Surface((BOSS_SIZE, BOSS_SIZE)),
+            'purple': pygame.Surface((BOSS_SIZE, BOSS_SIZE))
+        }
+        boss_images['red'].fill(RED)
+        boss_images['blue'].fill(BLUE)
+        boss_images['green'].fill(GREEN)
+        boss_images['purple'].fill(PURPLE)
+
+    # Lade Wand- und Weg-Texturen
+    wall_img = None
+    path_img = None
+    try:
+        wall_img = pygame.transform.scale(pygame.image.load('images/wall.png'), (CELL_SIZE, CELL_SIZE))
+        path_img = pygame.transform.scale(pygame.image.load('images/path.png'), (CELL_SIZE, CELL_SIZE))
+    except:
+        print("Warnung: Wand/Weg-Bilder konnten nicht geladen werden, verwende Ersatzbilder")
+        wall_img = pygame.Surface((CELL_SIZE, CELL_SIZE))
+        wall_img.fill(GRAY)
+        path_img = pygame.Surface((CELL_SIZE, CELL_SIZE))
+        path_img.fill(BLACK)
     
     return player_images, boss_images, wall_img, path_img
 
@@ -701,12 +743,12 @@ def draw_game(screen, walls, player, bosses, letters, collection_display, timer,
     screen.fill(BLACK)
     
     # Calculate player center in grid coordinates
+    player_grid_x = player.x // CELL_SIZE
+    player_grid_y = player.y // CELL_SIZE
     player_center_x = player.x + PLAYER_SIZE // 2
     player_center_y = player.y + PLAYER_SIZE // 2
-    player_grid_x = int(player_center_x // CELL_SIZE)
-    player_grid_y = int(player_center_y // CELL_SIZE)
     
-    # Draw visible walls and paths
+    # Draw visible walls
     for wall in walls:
         wall_grid_x = wall['pos'][0] // CELL_SIZE
         wall_grid_y = wall['pos'][1] // CELL_SIZE
@@ -743,17 +785,17 @@ def draw_game(screen, walls, player, bosses, letters, collection_display, timer,
     # Draw player
     player.draw(screen)
     
-    # Draw active bosses only if in vision range
+    # Draw active bosses
     for boss in bosses:
         if boss.active:
-            boss_grid_x = int(boss.x // CELL_SIZE)
-            boss_grid_y = int(boss.y // CELL_SIZE)
-            
-            if abs(boss_grid_x - player_grid_x) <= VISION_RADIUS and \
-               abs(boss_grid_y - player_grid_y) <= VISION_RADIUS:
-                boss.draw(screen)
+            boss.draw(screen)
     
-    # Draw fog of war if game is not over
+    # Draw collection display
+    collection_display.draw(screen)
+    
+    # Draw timer
+    timer.draw(screen)
+    
     if not game_over:
         # Create circular vision area
         vision_radius_px = VISION_RADIUS * CELL_SIZE
@@ -761,17 +803,13 @@ def draw_game(screen, walls, player, bosses, letters, collection_display, timer,
         vision_surface.fill((0, 0, 0, FOG_ALPHA))  # Semi-transparent black
         
         # Create a circle mask for the vision
-        pygame.draw.circle(vision_surface, (0, 0, 0, 0), 
+        pygame.draw.circle(vision_surface, (0, 0, 0, 0),
                          (int(player_center_x + GAME_OFFSET_X), 
-                          int(player_center_y + GAME_OFFSET_Y)), 
+                          int(player_center_y + GAME_OFFSET_Y)),
                          vision_radius_px)
         
         # Apply the fog of war
         screen.blit(vision_surface, (0, 0))
-    
-    # Draw UI elements
-    collection_display.draw(screen)
-    timer.draw(screen)
     
     # Draw difficulty text
     font = pygame.font.Font(None, 36)
@@ -789,31 +827,26 @@ def draw_game(screen, walls, player, bosses, letters, collection_display, timer,
         # Draw game over text
         font = pygame.font.Font(None, 74)
         if game_over_reason == 'win':
-            text = font.render("Escape Successful!", True, (0, 255, 0))  # Green text
-            question = font.render("Der Hauptsitz liegt in?", True, WHITE)
-            answer = font.render(collection_display.target_word, True, WHITE)
+            text = font.render("Escape Successful!", True, GREEN)
         else:
-            text = font.render("Game Over!", True, (255, 0, 0))  # Red text
+            text = font.render("Game Over!", True, RED)
         
         text_rect = text.get_rect(center=(DISPLAY_WIDTH // 2, DISPLAY_HEIGHT // 2 - 100))
         screen.blit(text, text_rect)
         
         if game_over_reason == 'win':
+            question = font.render("Wo ist der Hauptsitz von Weidmüller?", True, WHITE)
+            answer = font.render("DETMOLD", True, WHITE)
+            
             question_rect = question.get_rect(center=(DISPLAY_WIDTH // 2, DISPLAY_HEIGHT // 2))
-            screen.blit(question, question_rect)
             answer_rect = answer.get_rect(center=(DISPLAY_WIDTH // 2, DISPLAY_HEIGHT // 2 + 100))
+            
+            screen.blit(question, question_rect)
             screen.blit(answer, answer_rect)
     
     pygame.display.flip()
 
 def show_menu(screen, clock, language):
-    # Create menu options with translated text but return English keys
-    translations = {
-        TRANSLATIONS[language]['easy']: 'easy',
-        TRANSLATIONS[language]['medium']: 'medium',
-        TRANSLATIONS[language]['hard']: 'hard'
-    }
-    
     menu_options = [
         MenuOption(TRANSLATIONS[language]['easy'], (DISPLAY_WIDTH//2 - 100, DISPLAY_HEIGHT//2 - 60)),
         MenuOption(TRANSLATIONS[language]['medium'], (DISPLAY_WIDTH//2 - 100, DISPLAY_HEIGHT//2)),
@@ -821,26 +854,25 @@ def show_menu(screen, clock, language):
     ]
     
     selected_option = 0
-    menu_options[selected_option].is_selected = True
     
     while True:
         for event in pygame.event.get():
             if event.type == QUIT:
                 pygame.quit()
                 sys.exit()
-            elif event.type == KEYDOWN:
+            
+            if event.type == KEYDOWN:
                 if event.key == K_UP:
-                    menu_options[selected_option].is_selected = False
                     selected_option = (selected_option - 1) % len(menu_options)
-                    menu_options[selected_option].is_selected = True
                 elif event.key == K_DOWN:
-                    menu_options[selected_option].is_selected = False
                     selected_option = (selected_option + 1) % len(menu_options)
-                    menu_options[selected_option].is_selected = True
                 elif event.key == K_RETURN:
-                    return translations[menu_options[selected_option].text]
-            elif event.type == JOYBUTTONDOWN and event.button == 0:  
-                return translations[menu_options[selected_option].text]
+                    if selected_option == 0:
+                        return 'easy'
+                    elif selected_option == 1:
+                        return 'medium'
+                    else:
+                        return 'hard'
         
         screen.fill(BLACK)
         
@@ -849,8 +881,59 @@ def show_menu(screen, clock, language):
         title_rect = title.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT//4))
         screen.blit(title, title_rect)
         
-        for option in menu_options:
-            option.draw(screen)
+        for i, option in enumerate(menu_options):
+            color = WHITE if i == selected_option else GRAY
+            text = pygame.font.Font(None, 36).render(option.text, True, color)
+            text_rect = text.get_rect(center=option.pos)
+            if i == selected_option:
+                pygame.draw.rect(screen, color, text_rect.inflate(20, 10), 2)
+            screen.blit(text, text_rect)
+        
+        pygame.display.flip()
+        clock.tick(60)
+
+def show_character_menu(screen, clock, language):
+    menu_options = [
+        MenuOption('Jonas', (DISPLAY_WIDTH//2 - 100, DISPLAY_HEIGHT//2 - 60)),
+        MenuOption('Robert', (DISPLAY_WIDTH//2 - 100, DISPLAY_HEIGHT//2)),
+        MenuOption('Sebastian', (DISPLAY_WIDTH//2 - 100, DISPLAY_HEIGHT//2 + 60))
+    ]
+    
+    selected_option = 0
+    
+    while True:
+        for event in pygame.event.get():
+            if event.type == QUIT:
+                pygame.quit()
+                sys.exit()
+            
+            if event.type == KEYDOWN:
+                if event.key == K_UP:
+                    selected_option = (selected_option - 1) % len(menu_options)
+                elif event.key == K_DOWN:
+                    selected_option = (selected_option + 1) % len(menu_options)
+                elif event.key == K_RETURN:
+                    return menu_options[selected_option].text
+        
+        screen.fill(BLACK)
+        
+        title_font = pygame.font.Font(None, 64)
+        title = title_font.render(TRANSLATIONS[language]['select_character'], True, WHITE)
+        title_rect = title.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT//4))
+        screen.blit(title, title_rect)
+        
+        for i, option in enumerate(menu_options):
+            color = WHITE if i == selected_option else GRAY
+            text = pygame.font.Font(None, 36).render(option.text, True, color)
+            text_rect = text.get_rect(center=option.pos)
+            if i == selected_option:
+                pygame.draw.rect(screen, color, text_rect.inflate(20, 10), 2)
+            screen.blit(text, text_rect)
+        
+        instruction_font = pygame.font.Font(None, 36)
+        instruction = instruction_font.render(TRANSLATIONS[language]['press_to_select'], True, GRAY)
+        instruction_rect = instruction.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT * 3//4))
+        screen.blit(instruction, instruction_rect)
         
         pygame.display.flip()
         clock.tick(60)
@@ -935,12 +1018,12 @@ def main():
             
             # Draw win text
             font = pygame.font.Font(None, 74)
-            text = font.render("Escape Successful!", True, (0, 255, 0))
+            text = font.render("Escape Successful!", True, GREEN)
             text_rect = text.get_rect(center=(DISPLAY_WIDTH // 2, DISPLAY_HEIGHT // 2 - 100))
             screen.blit(text, text_rect)
             
             # Draw question and answer
-            question = font.render("Der Hauptsitz liegt in?", True, WHITE)
+            question = font.render("Wo ist der Hauptsitz von Weidmüller?", True, WHITE)
             answer = font.render("DETMOLD", True, WHITE)
             
             question_rect = question.get_rect(center=(DISPLAY_WIDTH // 2, DISPLAY_HEIGHT // 2))
