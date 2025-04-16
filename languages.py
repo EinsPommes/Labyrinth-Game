@@ -9,10 +9,10 @@ TRANSLATIONS = {
         'collected': 'Collected',
         'controls_keyboard': 'Controls: WASD to move',
         'controls_controller': 'Controls: Left Stick to move, X to interact',
-        'game_over': 'Game Over!',
+        'game_over': 'Game Over',
         'time_up': 'Time is up!',
-        'caught_by_boss': 'You were caught!',
-        'press_to_restart': 'Press ENTER or X to restart',
+        'caught_by_boss': 'Caught by Boss!',
+        'press_to_restart': 'Press ENTER or X button to restart',
         'escape_success': 'Escape Successful!',
         'question': 'Where is the headquarters of Weidmüller?',
         'select_language': 'Select Language',
@@ -27,7 +27,9 @@ TRANSLATIONS = {
         'select_difficulty': 'Select Difficulty',
         'victory': 'Victory!',
         'time_left': 'Time left: ',
-        'caught': 'You were caught!'
+        'caught': 'You were caught!',
+        'you_won': 'Congratulations!',
+        'answer': 'The answer is:'
     },
     'de': {
         'menu_title': 'Hauptmenü',
@@ -39,10 +41,10 @@ TRANSLATIONS = {
         'collected': 'Gesammelt',
         'controls_keyboard': 'Steuerung: WASD zum Bewegen',
         'controls_controller': 'Steuerung: Linker Stick zum Bewegen, X für Interaktion',
-        'game_over': 'Spiel vorbei!',
+        'game_over': 'Spiel vorbei',
         'time_up': 'Zeit abgelaufen!',
-        'caught_by_boss': 'Du wurdest gefangen!',
-        'press_to_restart': 'ENTER oder X zum Neustart drücken',
+        'caught_by_boss': 'Vom Boss erwischt!',
+        'press_to_restart': 'ENTER oder X-Taste zum Neustart',
         'escape_success': 'Flucht erfolgreich!',
         'question': 'Wo ist der Hauptsitz von Weidmüller?',
         'select_language': 'Sprache wählen',
@@ -57,6 +59,8 @@ TRANSLATIONS = {
         'select_difficulty': 'Schwierigkeit wählen',
         'victory': 'Gewonnen!',
         'time_left': 'Verbleibende Zeit: ',
-        'caught': 'Du wurdest gefangen!'
+        'caught': 'Du wurdest gefangen!',
+        'you_won': 'Glückwunsch!',
+        'answer': 'Die Antwort ist:'
     }
 }
