@@ -1,72 +1,40 @@
+import os
 import pygame
+import random
 import sys
 import time
-import random
-import math
-import heapq
-from pygame.locals import *
-from collections import defaultdict
 from languages import TRANSLATIONS
+from pygame.locals import *
 
-# Initialize Pygame
-pygame.init()
-
-# Constants
-DISPLAY_WIDTH = 800  # Raspberry Pi LCD Auflösung
-DISPLAY_HEIGHT = 480
-CELL_SIZE = 24  # Verkleinert für bessere Darstellung
-PLAYER_SIZE = int(CELL_SIZE * 0.8)
-BOSS_SIZE = int(CELL_SIZE * 0.8)
-LETTER_SIZE = 20  # Kleinere Buchstaben
-VISION_RADIUS = 4  # Angepasste Sichtweite
-FOG_ALPHA = 200   # Dunklerer Nebel
-
-# Farben
-WHITE = (255, 255, 255)
+# Konstanten
 BLACK = (0, 0, 0)
-RED = (255, 0, 0)
-YELLOW = (255, 255, 0)
-GREEN = (0, 255, 0)
 BLUE = (0, 0, 255)
-PURPLE = (255, 0, 255)
-CYAN = (0, 255, 255)
-ORANGE = (255, 165, 0)
+CELL_SIZE = 40
+DISPLAY_HEIGHT = 480
+DISPLAY_WIDTH = 800
 GRAY = (128, 128, 128)
+GREEN = (0, 255, 0)
+PLAYER_SIZE = 40
+RED = (255, 0, 0)
+WHITE = (255, 255, 255)
+YELLOW = (255, 255, 0)
 
-# Difficulty settings
+# Schwierigkeitseinstellungen
 DIFFICULTY_SETTINGS = {
     'easy': {
-        'speeds': {
-            'normal': 1,    # Langsamer
-            'fast': 1.5,    # Langsamer
-            'faster': 2,    # Langsamer
-            'fastest': 2.5  # Langsamer
-        },
-        'time_limit': 600,  # 10 Minuten
-        'letters': "DETMOLD",
-        'num_bosses': 2  # Weniger Bosse im Easy-Modus
-    },
-    'medium': {
-        'speeds': {
-            'normal': 1.5,
-            'fast': 2,
-            'faster': 2.5,
-            'fastest': 3
-        },
-        'time_limit': 420,  # 7 Minuten
-        'letters': "DETMOLD",
-        'num_bosses': 3  # Mittlere Anzahl Bosse
+        'boss_count': 2,
+        'letter_count': 7,
+        'time_limit': 300
     },
     'hard': {
-        'speeds': {
-            'normal': 2,
-            'fast': 2.5,
-            'faster': 3,
-            'fastest': 3.5
-        },
-        'time_limit': 300,  # 5 Minuten
-        'letters': "DETMOLD",
-        'num_bosses': 4  # Alle Bosse im Hard-Modus
+        'boss_count': 4,
+        'letter_count': 7,
+        'time_limit': 180
+    },
+    'medium': {
+        'boss_count': 3,
+        'letter_count': 7,
+        'time_limit': 240
     }
 }
 
@@ -201,10 +169,10 @@ class Boss:
     def __init__(self, x, y, name, speed, image, spawn_time, difficulty='medium'):
         self.x = x
         self.y = y
-        self.hitbox_size = int(BOSS_SIZE * 0.6)  # Kleinere Hitbox
-        self.hitbox_offset = (BOSS_SIZE - self.hitbox_size) // 2
+        self.hitbox_size = int(PLAYER_SIZE * 0.6)  # Kleinere Hitbox
+        self.hitbox_offset = (PLAYER_SIZE - self.hitbox_size) // 2
         self.rect = pygame.Rect(x + self.hitbox_offset, y + self.hitbox_offset, self.hitbox_size, self.hitbox_size)
-        self.visual_rect = pygame.Rect(x, y, BOSS_SIZE, BOSS_SIZE)
+        self.visual_rect = pygame.Rect(x, y, PLAYER_SIZE, PLAYER_SIZE)
         self.name = name
         self.base_speed = speed
         self.speed = speed
@@ -382,11 +350,11 @@ class Letter:
         self.letter = letter
         self.font = pygame.font.Font(None, 36)
         self.collected = False
-        self.rect = pygame.Rect(x, y, LETTER_SIZE, LETTER_SIZE)
+        self.rect = pygame.Rect(x, y, 20, 20)
         
         # Erstelle die Textoberfläche
         self.text_surface = self.font.render(letter, True, WHITE)
-        self.text_rect = self.text_surface.get_rect(center=(x + LETTER_SIZE//2, y + LETTER_SIZE//2))
+        self.text_rect = self.text_surface.get_rect(center=(x + 10, y + 10))
 
     def draw(self, screen):
         if not self.collected:
@@ -397,7 +365,7 @@ class CollectionDisplay:
         self.font = pygame.font.Font(None, 36)
         self.language = language
         self.collected_letters = []
-        self.target_word = DIFFICULTY_SETTINGS['easy']['letters']
+        self.target_word = DIFFICULTY_SETTINGS['easy']['letter_count']
         self.letter_positions = {}
         self.hint_font = pygame.font.Font(None, 24)
         self.collected_positions = set()  # Neue Variable für gesammelte Positionen
@@ -433,7 +401,7 @@ class CollectionDisplay:
         screen.blit(text_surface, text_rect)
 
         # Zeichne Fortschrittsanzeige
-        hint_text = f"{len(self.collected_letters)}/{len(self.target_word)}"
+        hint_text = f"{len(self.collected_letters)}/{self.target_word}"
         hint_surface = self.hint_font.render(hint_text, True, WHITE)
         hint_rect = hint_surface.get_rect(center=(DISPLAY_WIDTH // 2, 60))
         screen.blit(hint_surface, hint_rect)
@@ -534,7 +502,7 @@ class LanguageMenu:
             # Sprachoptionen
             for i, lang in enumerate(self.languages):
                 color = WHITE if i == self.selected_index else GRAY
-                text = pygame.font.Font(None, 48).render(TRANSLATIONS[lang]['language_name'], True, color)
+                text = pygame.font.Font(None, 48).render(lang, True, color)
                 rect = text.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT//2 + i * 60))
                 
                 if i == self.selected_index:
@@ -644,7 +612,7 @@ class CharacterMenu:
             
             # Titel
             title_font = pygame.font.Font(None, 74)
-            title = title_font.render(TRANSLATIONS[self.language]['select_character'], True, WHITE)
+            title = title_font.render('Select Character', True, WHITE)
             title_rect = title.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT//4))
             self.screen.blit(title, title_rect)
             
@@ -654,8 +622,8 @@ class CharacterMenu:
             
             # Steuerungshinweise
             hint_font = pygame.font.Font(None, 36)
-            keyboard_hint = hint_font.render(TRANSLATIONS[self.language]['press_to_select'], True, GRAY)
-            controller_hint = hint_font.render(TRANSLATIONS[self.language]['press_x_to_select'], True, GRAY)
+            keyboard_hint = hint_font.render('Press ENTER to select', True, GRAY)
+            controller_hint = hint_font.render('Press X button to select', True, GRAY)
             
             keyboard_rect = keyboard_hint.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT * 3//4))
             controller_rect = controller_hint.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT * 3//4 + 40))
@@ -706,8 +674,7 @@ def create_maze():
     return walls, paths
 
 def create_bosses(difficulty, boss_images):
-    num_bosses = DIFFICULTY_SETTINGS[difficulty]['num_bosses']
-    boss_speeds = DIFFICULTY_SETTINGS[difficulty]['speeds']
+    num_bosses = DIFFICULTY_SETTINGS[difficulty]['boss_count']
     bosses = []
     
     # Definiere die Startpositionen für die Bosse
@@ -720,10 +687,10 @@ def create_bosses(difficulty, boss_images):
     
     # Definiere die Boss-Konfigurationen
     boss_configs = [
-        {'name': 'Schneller Boss', 'speed': boss_speeds['fastest'], 'image': boss_images['red'], 'spawn_time': 1},
-        {'name': 'Normaler Boss', 'speed': boss_speeds['normal'], 'image': boss_images['blue'], 'spawn_time': 5},
-        {'name': 'Schneller Boss 2', 'speed': boss_speeds['faster'], 'image': boss_images['green'], 'spawn_time': 15},
-        {'name': 'Schneller Boss 3', 'speed': boss_speeds['fast'], 'image': boss_images['purple'], 'spawn_time': 30}
+        {'name': 'Schneller Boss', 'speed': 2, 'image': boss_images['red'], 'spawn_time': 1},
+        {'name': 'Normaler Boss', 'speed': 1.5, 'image': boss_images['blue'], 'spawn_time': 5},
+        {'name': 'Schneller Boss 2', 'speed': 2.5, 'image': boss_images['green'], 'spawn_time': 15},
+        {'name': 'Schneller Boss 3', 'speed': 2, 'image': boss_images['purple'], 'spawn_time': 30}
     ]
     
     # Erstelle die ausgewählte Anzahl an Bossen
@@ -738,7 +705,7 @@ def create_bosses(difficulty, boss_images):
 
 def create_letters(difficulty):
     letters = []
-    target_word = DIFFICULTY_SETTINGS[difficulty]['letters']
+    target_word = DIFFICULTY_SETTINGS[difficulty]['letter_count']
     print(f"Zielwort: {target_word} (Länge: {len(target_word)})")  # Debug
     
     # Finde alle verfügbaren Positionen
@@ -757,17 +724,17 @@ def create_letters(difficulty):
     print(f"Verfügbare Positionen: {len(available_positions)}")  # Debug
     
     # Wähle zufällige Positionen für jeden Buchstaben
-    for i, char in enumerate(target_word):
+    for i in range(target_word):
         if available_positions:
             pos = random.choice(available_positions)
             available_positions.remove(pos)
             letters.append({
-                'char': char,
+                'char': chr(65 + i),  # A-Z
                 'x': pos[0],
                 'y': pos[1],
                 'collected': False
             })
-            print(f"Platziere Buchstabe {char} an Position {pos}")  # Debug
+            print(f"Platziere Buchstabe {chr(65 + i)} an Position {pos}")  # Debug
     
     print(f"Platzierte Buchstaben: {len(letters)}")  # Debug
     return letters
@@ -777,8 +744,8 @@ def check_letter_collection(player, letters, collection_display):
         letter_rect = pygame.Rect(
             letter['x'],  # Ohne GAME_OFFSET
             letter['y'],  # Ohne GAME_OFFSET
-            LETTER_SIZE,
-            LETTER_SIZE
+            20,
+            20
         )
         if not letter['collected'] and player.rect.colliderect(letter_rect):
             letter['collected'] = True
@@ -835,19 +802,19 @@ def load_images():
     boss_images = {}
     try:
         boss_images = {
-            'red': pygame.transform.scale(pygame.image.load('images/louis.png'), (BOSS_SIZE, BOSS_SIZE)),
-            'blue': pygame.transform.scale(pygame.image.load('images/jannik.png'), (BOSS_SIZE, BOSS_SIZE)),
-            'green': pygame.transform.scale(pygame.image.load('images/tom.png'), (BOSS_SIZE, BOSS_SIZE)),
-            'purple': pygame.transform.scale(pygame.image.load('images/phillip.png'), (BOSS_SIZE, BOSS_SIZE))
+            'red': pygame.transform.scale(pygame.image.load('images/louis.png'), (PLAYER_SIZE, PLAYER_SIZE)),
+            'blue': pygame.transform.scale(pygame.image.load('images/jannik.png'), (PLAYER_SIZE, PLAYER_SIZE)),
+            'green': pygame.transform.scale(pygame.image.load('images/tom.png'), (PLAYER_SIZE, PLAYER_SIZE)),
+            'purple': pygame.transform.scale(pygame.image.load('images/phillip.png'), (PLAYER_SIZE, PLAYER_SIZE))
         }
     except:
         print("Warnung: Boss-Bilder konnten nicht geladen werden, verwende Ersatzbilder")
         # Ersatzbilder
         boss_images = {
-            'red': pygame.Surface((BOSS_SIZE, BOSS_SIZE)),
-            'blue': pygame.Surface((BOSS_SIZE, BOSS_SIZE)),
-            'green': pygame.Surface((BOSS_SIZE, BOSS_SIZE)),
-            'purple': pygame.Surface((BOSS_SIZE, BOSS_SIZE))
+            'red': pygame.Surface((PLAYER_SIZE, PLAYER_SIZE)),
+            'blue': pygame.Surface((PLAYER_SIZE, PLAYER_SIZE)),
+            'green': pygame.Surface((PLAYER_SIZE, PLAYER_SIZE)),
+            'purple': pygame.Surface((PLAYER_SIZE, PLAYER_SIZE))
         }
         boss_images['red'].fill(RED)
         boss_images['blue'].fill(BLUE)
@@ -884,8 +851,8 @@ def draw_game(screen, walls, player, bosses, letters, collection_display, timer,
         wall_grid_y = wall['pos'][1] // CELL_SIZE
         
         # Check if wall is within vision radius
-        if abs(wall_grid_x - player_grid_x) <= VISION_RADIUS and \
-           abs(wall_grid_y - player_grid_y) <= VISION_RADIUS:
+        if abs(wall_grid_x - player_grid_x) <= 4 and \
+           abs(wall_grid_y - player_grid_y) <= 4:
             screen.blit(wall_img, (wall['pos'][0] + GAME_OFFSET_X, wall['pos'][1] + GAME_OFFSET_Y))
     
     # Draw visible paths
@@ -895,8 +862,8 @@ def draw_game(screen, walls, player, bosses, letters, collection_display, timer,
             path_grid_y = path['pos'][1] // CELL_SIZE
             
             # Check if path is within vision radius
-            if abs(path_grid_x - player_grid_x) <= VISION_RADIUS and \
-               abs(path_grid_y - player_grid_y) <= VISION_RADIUS:
+            if abs(path_grid_x - player_grid_x) <= 4 and \
+               abs(path_grid_y - player_grid_y) <= 4:
                 screen.blit(path_img, (path['pos'][0] + GAME_OFFSET_X, path['pos'][1] + GAME_OFFSET_Y))
     
     # Draw visible letters
@@ -904,9 +871,9 @@ def draw_game(screen, walls, player, bosses, letters, collection_display, timer,
         letter_grid_x = letter['x'] // CELL_SIZE
         letter_grid_y = letter['y'] // CELL_SIZE
         
-        if abs(letter_grid_x - player_grid_x) <= VISION_RADIUS and \
-           abs(letter_grid_y - player_grid_y) <= VISION_RADIUS:
-            letter_rect = pygame.Rect(letter['x'] + GAME_OFFSET_X, letter['y'] + GAME_OFFSET_Y, LETTER_SIZE, LETTER_SIZE)
+        if abs(letter_grid_x - player_grid_x) <= 4 and \
+           abs(letter_grid_y - player_grid_y) <= 4:
+            letter_rect = pygame.Rect(letter['x'] + GAME_OFFSET_X, letter['y'] + GAME_OFFSET_Y, 20, 20)
             letter_font = pygame.font.Font(None, 36)
             letter_text = letter_font.render(letter['char'], True, WHITE)
             letter_text_rect = letter_text.get_rect(center=letter_rect.center)
@@ -928,9 +895,9 @@ def draw_game(screen, walls, player, bosses, letters, collection_display, timer,
     
     if not game_over:
         # Create circular vision area
-        vision_radius_px = VISION_RADIUS * CELL_SIZE
+        vision_radius_px = 4 * CELL_SIZE
         vision_surface = pygame.Surface((DISPLAY_WIDTH, DISPLAY_HEIGHT), pygame.SRCALPHA)
-        vision_surface.fill((0, 0, 0, FOG_ALPHA))  # Semi-transparent black
+        vision_surface.fill((0, 0, 0, 200))  # Semi-transparent black
         
         # Create a circle mask for the vision
         pygame.draw.circle(vision_surface, (0, 0, 0, 0),
@@ -943,7 +910,7 @@ def draw_game(screen, walls, player, bosses, letters, collection_display, timer,
     
     # Draw difficulty text
     font = pygame.font.Font(None, 36)
-    difficulty_text = font.render(f"{TRANSLATIONS[language][difficulty]}", True, WHITE)
+    difficulty_text = font.render(f"{difficulty}", True, WHITE)
     difficulty_rect = difficulty_text.get_rect(bottomleft=(20, DISPLAY_HEIGHT - 20))
     screen.blit(difficulty_text, difficulty_rect)
     
@@ -1033,14 +1000,14 @@ def show_menu(screen, clock, language):
         
         # Titel
         title_font = pygame.font.Font(None, 74)
-        title = title_font.render(TRANSLATIONS[language]['select_difficulty'], True, WHITE)
+        title = title_font.render('Select Difficulty', True, WHITE)
         title_rect = title.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT//4))
         screen.blit(title, title_rect)
         
         # Schwierigkeitsgrade
         for i, diff in enumerate(difficulties):
             color = WHITE if i == selected_index else GRAY
-            text = pygame.font.Font(None, 48).render(TRANSLATIONS[language][diff], True, color)
+            text = pygame.font.Font(None, 48).render(diff, True, color)
             rect = text.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT//2 + i * 60))
             
             if i == selected_index:
@@ -1050,8 +1017,8 @@ def show_menu(screen, clock, language):
         
         # Steuerungshinweise
         hint_font = pygame.font.Font(None, 36)
-        keyboard_hint = hint_font.render(TRANSLATIONS[language]['press_to_select'], True, GRAY)
-        controller_hint = hint_font.render(TRANSLATIONS[language]['press_x_to_select'], True, GRAY)
+        keyboard_hint = hint_font.render('Press ENTER to select', True, GRAY)
+        controller_hint = hint_font.render('Press X button to select', True, GRAY)
         
         keyboard_rect = keyboard_hint.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT * 3//4))
         controller_rect = controller_hint.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT * 3//4 + 40))
