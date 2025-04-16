@@ -511,10 +511,12 @@ class MenuOption:
         screen.blit(text_surface, text_rect)
 
 def show_character_menu(screen, clock, language):
+    # Definiere die Charakternamen direkt
+    character_names = ['Jonas', 'Robert', 'Sebastian']
+    
     menu_options = [
-        MenuOption(TRANSLATIONS[language]['character_jonas'], (GAME_WIDTH//2 - 100, GAME_HEIGHT//2 - 60)),
-        MenuOption(TRANSLATIONS[language]['character_robert'], (GAME_WIDTH//2 - 100, GAME_HEIGHT//2)),
-        MenuOption(TRANSLATIONS[language]['character_sebastian'], (GAME_WIDTH//2 - 100, GAME_HEIGHT//2 + 60))
+        MenuOption(name, (GAME_WIDTH//2 - 100, GAME_HEIGHT//2 - 60 + i * 60))
+        for i, name in enumerate(character_names)
     ]
     
     selected_option = 0
@@ -535,7 +537,7 @@ def show_character_menu(screen, clock, language):
                     selected_option = (selected_option + 1) % len(menu_options)
                     menu_options[selected_option].is_selected = True
                 elif event.key == K_RETURN:
-                    return menu_options[selected_option].text.replace(TRANSLATIONS[language]['character_'], '')
+                    return menu_options[selected_option].text
         
         screen.fill(BLACK)
         
