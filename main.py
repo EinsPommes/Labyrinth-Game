@@ -142,12 +142,13 @@ class Player:
             x_axis = joystick.get_axis(0)  # X-Achse
             y_axis = joystick.get_axis(1)  # Y-Achse
             
-            # Deadzone von 0.2
-            if abs(x_axis) > 0.2:
+            # Deadzone für Analogstick
+            deadzone = 0.2
+            if abs(x_axis) > deadzone:
                 dx = self.speed * x_axis
-            if abs(y_axis) > 0.2:
+            if abs(y_axis) > deadzone:
                 dy = self.speed * y_axis
-            
+                
             # D-Pad
             hat = joystick.get_hat(0)
             if hat[0] == -1:  # Links
@@ -158,7 +159,11 @@ class Player:
                 dy = -self.speed
             elif hat[1] == -1: # Unten
                 dy = self.speed
-
+            
+            # X-Taste für Interaktion
+            if joystick.get_button(1):  # X-Button (PS4)
+                self.interaction_cooldown = 30  # Setzt den Cooldown
+        
         if dx != 0 or dy != 0:
             self.move(dx, dy, walls)
             self.last_move_time = current_time
