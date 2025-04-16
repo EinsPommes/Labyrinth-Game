@@ -12,22 +12,50 @@ from languages import TRANSLATIONS
 pygame.init()
 
 # Constants
-DISPLAY_WIDTH = 800  # Raspberry Pi LCD Auflösung
-DISPLAY_HEIGHT = 480
-CELL_SIZE = 24  # Verkleinert für bessere Darstellung
+WINDOW_WIDTH = 800
+WINDOW_HEIGHT = 480
+CELL_SIZE = 32  # Adjusted to fit the new resolution
 PLAYER_SIZE = int(CELL_SIZE * 0.8)
 BOSS_SIZE = int(CELL_SIZE * 0.8)
-LETTER_SIZE = 20  # Kleinere Buchstaben
-VISION_RADIUS = 4  # Angepasste Sichtweite
-FOG_ALPHA = 200   # Dunklerer Nebel
+LETTER_SIZE = int(CELL_SIZE * 0.6)
+VISION_RADIUS = 5  # Increased vision radius
+FOG_ALPHA = 150  # Less dark fog (0 = transparent, 255 = opaque)
 
-# Farben
-WHITE = (255, 255, 255)
+# Load images
+def load_images():
+    # Lade das Standard-Spielerbild für alle Charaktere
+    player_img = pygame.image.load('images/player.png')
+    player_img = pygame.transform.scale(player_img, (PLAYER_SIZE, PLAYER_SIZE))
+    
+    # Verwende das gleiche Bild für alle Charaktere (vorübergehend)
+    player_images = {
+        'Jonas': player_img,
+        'Robert': player_img,
+        'Sebastian': player_img
+    }
+    
+    boss_images = {
+        'Louis': pygame.transform.scale(pygame.image.load('images/louis.png'), (BOSS_SIZE, BOSS_SIZE)),
+        'Jannik': pygame.transform.scale(pygame.image.load('images/jannik.png'), (BOSS_SIZE, BOSS_SIZE)),
+        'Tom': pygame.transform.scale(pygame.image.load('images/tom.png'), (BOSS_SIZE, BOSS_SIZE)),
+        'Phillip': pygame.transform.scale(pygame.image.load('images/phillip.png'), (BOSS_SIZE, BOSS_SIZE))
+    }
+
+    # Lade Wand- und Weg-Texturen
+    wall_img = pygame.image.load('images/wall.png')
+    wall_img = pygame.transform.scale(wall_img, (CELL_SIZE, CELL_SIZE))
+    path_img = pygame.image.load('images/path.png')
+    path_img = pygame.transform.scale(path_img, (CELL_SIZE, CELL_SIZE))
+    
+    return player_images, boss_images, wall_img, path_img
+
+# Colors
 BLACK = (0, 0, 0)
+WHITE = (255, 255, 255)
 RED = (255, 0, 0)
-YELLOW = (255, 255, 0)
 GREEN = (0, 255, 0)
 BLUE = (0, 0, 255)
+YELLOW = (255, 255, 0)
 PURPLE = (255, 0, 255)
 CYAN = (0, 255, 255)
 ORANGE = (255, 165, 0)
@@ -37,14 +65,13 @@ GRAY = (128, 128, 128)
 DIFFICULTY_SETTINGS = {
     'easy': {
         'speeds': {
-            'normal': 1,    # Langsamer
-            'fast': 1.5,    # Langsamer
-            'faster': 2,    # Langsamer
-            'fastest': 2.5  # Langsamer
+            'normal': 1,    # Slower
+            'fast': 1.5,    # Slower
+            'faster': 2,    # Slower
+            'fastest': 2.5  # Slower
         },
-        'time_limit': 600,  # 10 Minuten
-        'letters': "DETMOLD",
-        'num_bosses': 2  # Weniger Bosse im Easy-Modus
+        'time_limit': 600,  # 10 minutes
+        'letters': "DETMOLD"
     },
     'medium': {
         'speeds': {
@@ -53,9 +80,8 @@ DIFFICULTY_SETTINGS = {
             'faster': 2.5,
             'fastest': 3
         },
-        'time_limit': 420,  # 7 Minuten
-        'letters': "DETMOLD",
-        'num_bosses': 3  # Mittlere Anzahl Bosse
+        'time_limit': 420,  # 7 minutes
+        'letters': "DETMOLD"
     },
     'hard': {
         'speeds': {
@@ -64,43 +90,29 @@ DIFFICULTY_SETTINGS = {
             'faster': 3,
             'fastest': 3.5
         },
-        'time_limit': 300,  # 5 Minuten
-        'letters': "DETMOLD",
-        'num_bosses': 4  # Alle Bosse im Hard-Modus
+        'time_limit': 300,  # 5 minutes
+        'letters': "DETMOLD"
     }
 }
 
-# Maze layout: 0 = path, 1 = wall
+# Maze layout (0 = path, 1 = wall)
 MAZE_LAYOUT = [
-    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-    [1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
-    [1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1],
-    [1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1],
-    [1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1],
-    [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1],
-    [1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1],
-    [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1],
-    [1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1],
-    [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1],
-    [1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1],
-    [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1],
-    [1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1],
-    [1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-    [1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1],
-    [1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1],
-    [1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1],
-    [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-    [1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1],
-    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+    [1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1],
+    [1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1],
+    [1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1],
+    [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1],
+    [1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1],
+    [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1],
+    [1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1],
+    [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1],
+    [1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1],
+    [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1],
+    [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1],
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
 ]
-
-# Berechne die Spielfeldgröße
-GAME_WIDTH = len(MAZE_LAYOUT[0]) * CELL_SIZE
-GAME_HEIGHT = len(MAZE_LAYOUT) * CELL_SIZE
-
-# Zentriere das Spiel auf dem Display
-GAME_OFFSET_X = (DISPLAY_WIDTH - GAME_WIDTH) // 2
-GAME_OFFSET_Y = (DISPLAY_HEIGHT - GAME_HEIGHT) // 2
 
 class Player:
     def __init__(self, x, y, image):
@@ -174,163 +186,152 @@ class Player:
         pygame.draw.rect(screen, RED, self.rect, 1)
 
 class Boss:
-    def __init__(self, x, y, name, speed, image, spawn_time, difficulty='medium'):
+    def __init__(self, x, y, speed_type, color, name, image, spawn_time, difficulty='medium'):
         self.x = x
         self.y = y
-        self.hitbox_size = int(BOSS_SIZE * 0.6)  # Kleinere Hitbox
-        self.hitbox_offset = (BOSS_SIZE - self.hitbox_size) // 2
-        self.rect = pygame.Rect(x + self.hitbox_offset, y + self.hitbox_offset, self.hitbox_size, self.hitbox_size)
+        # Make hitbox even smaller (40% of visual size)
+        hitbox_size = int(BOSS_SIZE * 0.4)
+        hitbox_offset = (BOSS_SIZE - hitbox_size) // 2
+        self.rect = pygame.Rect(x + hitbox_offset, y + hitbox_offset, hitbox_size, hitbox_size)
         self.visual_rect = pygame.Rect(x, y, BOSS_SIZE, BOSS_SIZE)
+        self.speed_type = speed_type
+        self.color = color
         self.name = name
-        self.base_speed = speed
-        self.speed = speed
         self.image = image
         self.spawn_time = spawn_time
         self.active = False
-        self.name_font = pygame.font.Font(None, 20)
+        self.difficulty = difficulty
+        self.speed = DIFFICULTY_SETTINGS[difficulty]['speeds'][speed_type] * 0.5
         self.path = []
         self.path_update_timer = 0
-        self.path_update_interval = 30  # Update alle 0.5 Sekunden (30 Frames)
-        self.last_player_pos = None
-        self.difficulty = difficulty
-        # Zufälliger Offset für das Ziel (1-2 Felder)
-        self.target_offset = (
-            random.randint(-2 * CELL_SIZE, 2 * CELL_SIZE),
-            random.randint(-2 * CELL_SIZE, 2 * CELL_SIZE)
-        )
+        self.path_update_interval = 15  # Update path more frequently
+        self.stuck_timer = 0
+        self.last_position = (x, y)
+        self.name_font = pygame.font.Font(None, 20)
+
+    def is_valid_position(self, x, y, walls):
+        # Check if position is valid (not colliding with walls)
+        hitbox_size = int(BOSS_SIZE * 0.4)
+        hitbox_offset = (BOSS_SIZE - hitbox_size) // 2
+        temp_rect = pygame.Rect(x + hitbox_offset, y + hitbox_offset, hitbox_size, hitbox_size)
         
-    def update(self, player, walls):
-        if not self.active and time.time() >= self.spawn_time:
-            self.active = True
-        
-        if not self.active:
-            return
-            
-        # Position und Hitbox aktualisieren
-        self.rect.x = self.x + self.hitbox_offset
-        self.rect.y = self.y + self.hitbox_offset
-        self.visual_rect.x = self.x
-        self.visual_rect.y = self.y
-        
-        # Pfad-Update Timer
-        self.path_update_timer += 1
-        if self.path_update_timer >= self.path_update_interval:
-            self.path_update_timer = 0
-            # Ziel mit Offset berechnen
-            target_x = player.rect.centerx + self.target_offset[0]
-            target_y = player.rect.centery + self.target_offset[1]
-            # Stelle sicher, dass das Ziel im Spielfeld liegt
-            target_x = max(CELL_SIZE, min(target_x, (len(MAZE_LAYOUT[0])-2) * CELL_SIZE))
-            target_y = max(CELL_SIZE, min(target_y, (len(MAZE_LAYOUT)-2) * CELL_SIZE))
-            self.last_player_pos = (target_x, target_y)
-            # Neuen Pfad berechnen
-            self.path = self.find_path_to_player(player, walls)
-            # Geschwindigkeit leicht variieren
-            self.speed = self.base_speed * random.uniform(0.9, 1.1)
-        
-        # Bewegung entlang des Pfades
-        if self.path:
-            next_x, next_y = self.path[0]
-            dx = next_x - self.rect.centerx
-            dy = next_y - self.rect.centery
-            
-            # Bewegungsvektor normalisieren
-            distance = math.sqrt(dx * dx + dy * dy)
-            if distance > 0:
-                dx = (dx / distance) * self.speed
-                dy = (dy / distance) * self.speed
-                
-                # Neue Position testen
-                new_x = self.x + dx
-                new_y = self.y + dy
-                
-                # Kollisionstest
-                test_rect = pygame.Rect(new_x + self.hitbox_offset, new_y + self.hitbox_offset, 
-                                     self.hitbox_size, self.hitbox_size)
-                
-                can_move = True
-                for wall in walls:
-                    if test_rect.colliderect(wall['rect']):
-                        can_move = False
-                        break
-                
-                if can_move:
-                    self.x = new_x
-                    self.y = new_y
-                    
-                # Wegpunkt erreicht?
-                if distance < self.speed * 2:
-                    self.path.pop(0)
-    
-    def find_path_to_player(self, player, walls):
-        if not self.last_player_pos:
-            return []
-            
-        # Start- und Zielpositionen
-        start = (int(self.rect.centerx / CELL_SIZE), int(self.rect.centery / CELL_SIZE))
-        goal = (int(self.last_player_pos[0] / CELL_SIZE), int(self.last_player_pos[1] / CELL_SIZE))
-        
-        if start == goal:
-            return []
-            
-        # Erstelle Gitter für A*
-        grid = [[0 for _ in range(len(MAZE_LAYOUT[0]))] for _ in range(len(MAZE_LAYOUT))]
         for wall in walls:
-            grid_x = wall['pos'][0] // CELL_SIZE
-            grid_y = wall['pos'][1] // CELL_SIZE
-            if 0 <= grid_x < len(grid[0]) and 0 <= grid_y < len(grid):
-                grid[grid_y][grid_x] = 1
+            if temp_rect.colliderect(wall['rect']):
+                return False
+        return True
+
+    def get_grid_pos(self):
+        return (int(self.y // CELL_SIZE), int(self.x // CELL_SIZE))
+
+    def get_neighbors(self, pos, maze):
+        rows, cols = len(MAZE_LAYOUT), len(MAZE_LAYOUT[0])
+        row, col = pos
+        neighbors = []
         
-        # A* Implementierung
-        frontier = [(0, start)]
+        for dr, dc in [(0, 1), (1, 0), (0, -1), (-1, 0)]:
+            r, c = row + dr, col + dc
+            if (0 <= r < rows and 0 <= c < cols and MAZE_LAYOUT[r][c] == 0):
+                neighbors.append((r, c))
+        return neighbors
+
+    def heuristic(self, a, b):
+        return abs(a[0] - b[0]) + abs(a[1] - b[1])  
+
+    def find_path(self, target_pos, maze):
+        start = self.get_grid_pos()
+        goal = (int(target_pos[1] // CELL_SIZE), int(target_pos[0] // CELL_SIZE))
+
+        frontier = []
+        heapq.heappush(frontier, (0, start))
         came_from = {start: None}
         cost_so_far = {start: 0}
-        
+
         while frontier:
             current = heapq.heappop(frontier)[1]
-            
+
             if current == goal:
                 break
-                
-            # Nachbarn prüfen (inkl. Diagonalen)
-            neighbors = []
-            for dx, dy in [(0, 1), (1, 0), (0, -1), (-1, 0), (1, 1), (-1, 1), (1, -1), (-1, -1)]:
-                next_x = current[0] + dx
-                next_y = current[1] + dy
-                
-                # Prüfe Grenzen und Wände
-                if (0 <= next_x < len(grid[0]) and 
-                    0 <= next_y < len(grid) and 
-                    grid[next_y][next_x] == 0):
-                    
-                    # Diagonale Bewegung nur erlauben, wenn beide angrenzenden Felder frei sind
-                    if abs(dx) == 1 and abs(dy) == 1:
-                        if grid[current[1]][current[0] + dx] == 1 or grid[current[1] + dy][current[0]] == 1:
-                            continue
-                    
-                    next_pos = (next_x, next_y)
-                    # Diagonale Bewegung kostet mehr
-                    movement_cost = 1.4 if (abs(dx) == 1 and abs(dy) == 1) else 1
-                    new_cost = cost_so_far[current] + movement_cost
-                    
-                    if next_pos not in cost_so_far or new_cost < cost_so_far[next_pos]:
-                        cost_so_far[next_pos] = new_cost
-                        # Manhattan-Distanz als Heuristik
-                        priority = new_cost + abs(goal[0] - next_x) + abs(goal[1] - next_y)
-                        heapq.heappush(frontier, (priority, next_pos))
-                        came_from[next_pos] = current
-        
-        # Pfad rekonstruieren
+
+            for next_pos in self.get_neighbors(current, maze):
+                new_cost = cost_so_far[current] + 1
+                if next_pos not in cost_so_far or new_cost < cost_so_far[next_pos]:
+                    cost_so_far[next_pos] = new_cost
+                    priority = new_cost + self.heuristic(goal, next_pos)
+                    heapq.heappush(frontier, (priority, next_pos))
+                    came_from[next_pos] = current
+
         path = []
         current = goal
         while current and current in came_from:
-            # Füge Mittelpunkt der Zelle zum Pfad hinzu
-            path.append((current[0] * CELL_SIZE + CELL_SIZE // 2,
-                       current[1] * CELL_SIZE + CELL_SIZE // 2))
+            path.append(current)
             current = came_from[current]
-        
         path.reverse()
         return path
+
+    def move_towards_player(self, player, walls, maze):
+        if not self.active:
+            return
+            
+        # Check if boss is stuck
+        current_pos = (self.x, self.y)
+        if current_pos == self.last_position:
+            self.stuck_timer += 1
+        else:
+            self.stuck_timer = 0
+            self.last_position = current_pos
+
+        # If stuck for too long, force path update
+        if self.stuck_timer > 30:
+            self.path = []
+            self.stuck_timer = 0
+            
+        self.path_update_timer += 1
+        
+        # Update path more frequently if no path exists
+        if self.path_update_timer >= self.path_update_interval or not self.path:
+            # Use player's center for pathfinding
+            player_center = (player.rect.centerx, player.rect.centery)
+            self.path = self.find_path((player_center[0], player_center[1]), maze)
+            self.path_update_timer = 0
+
+        if not self.path:
+            return
+
+        next_pos = self.path[0]
+        # Calculate target position at center of cell
+        target_x = next_pos[1] * CELL_SIZE + (CELL_SIZE - BOSS_SIZE) / 2
+        target_y = next_pos[0] * CELL_SIZE + (CELL_SIZE - BOSS_SIZE) / 2
+
+        # Calculate direction to move
+        dx = target_x - self.x
+        dy = target_y - self.y
+        distance = (dx ** 2 + dy ** 2) ** 0.5
+
+        if distance < self.speed:
+            self.path.pop(0)
+        else:
+            # Try diagonal movement first
+            dx = (dx / distance) * self.speed
+            dy = (dy / distance) * self.speed
+            
+            # Try moving diagonally
+            if self.is_valid_position(self.x + dx, self.y + dy, walls):
+                self.x += dx
+                self.y += dy
+            else:
+                # If can't move diagonally, try horizontal and vertical separately
+                if self.is_valid_position(self.x + dx, self.y, walls):
+                    self.x += dx
+                if self.is_valid_position(self.x, self.y + dy, walls):
+                    self.y += dy
+            
+            # Update rectangles
+            self.visual_rect.x = self.x
+            self.visual_rect.y = self.y
+            hitbox_size = int(BOSS_SIZE * 0.4)
+            hitbox_offset = (BOSS_SIZE - hitbox_size) // 2
+            self.rect.x = self.x + hitbox_offset
+            self.rect.y = self.y + hitbox_offset
 
     def draw(self, screen):
         if not self.active:
@@ -340,16 +341,16 @@ class Boss:
         screen.blit(self.image, self.visual_rect)
         
         # Draw the name above
-        name_text = self.name_font.render(self.name, True, self.image.get_at((0, 0)))
+        name_text = self.name_font.render(self.name, True, self.color)
         name_rect = name_text.get_rect(centerx=self.visual_rect.centerx, bottom=self.visual_rect.top - 2)
         screen.blit(name_text, name_rect)
         
         # Debug: Draw hitbox in the boss's color
-        pygame.draw.rect(screen, self.image.get_at((0, 0)), self.rect, 1)
+        pygame.draw.rect(screen, self.color, self.rect, 1)
         # Debug: Draw center point
         center_x = self.rect.centerx
         center_y = self.rect.centery
-        pygame.draw.circle(screen, self.image.get_at((0, 0)), (center_x, center_y), 2)
+        pygame.draw.circle(screen, self.color, (center_x, center_y), 2)
 
 class Letter:
     def __init__(self, x, y, letter):
@@ -405,13 +406,13 @@ class CollectionDisplay:
         # Zeichne gesammelte Buchstaben
         collected_text = "".join(letter[0] for letter in self.collected_letters)
         text_surface = self.font.render(collected_text, True, WHITE)
-        text_rect = text_surface.get_rect(center=(GAME_WIDTH // 2, 30))
+        text_rect = text_surface.get_rect(center=(WINDOW_WIDTH // 2, 30))
         screen.blit(text_surface, text_rect)
 
         # Zeichne Fortschrittsanzeige
         hint_text = f"{len(self.collected_letters)}/{len(self.target_word)}"
         hint_surface = self.hint_font.render(hint_text, True, WHITE)
-        hint_rect = hint_surface.get_rect(center=(GAME_WIDTH // 2, 60))
+        hint_rect = hint_surface.get_rect(center=(WINDOW_WIDTH // 2, 60))
         screen.blit(hint_surface, hint_rect)
 
 class Timer:
@@ -431,7 +432,7 @@ class Timer:
         seconds = int(self.remaining_seconds % 60)
         text = self.font.render(f"{minutes:02d}:{seconds:02d}", True, WHITE)
         # Draw at bottom right corner
-        text_rect = text.get_rect(bottomright=(GAME_WIDTH - 20, GAME_HEIGHT - 20))
+        text_rect = text.get_rect(bottomright=(WINDOW_WIDTH - 20, WINDOW_HEIGHT - 20))
         screen.blit(text, text_rect)
 
 class LanguageSelector:
@@ -470,14 +471,14 @@ class LanguageSelector:
             title_font = pygame.font.Font(None, 64)
             for lang in self.languages:
                 title = title_font.render(TRANSLATIONS[lang]['select_language'], True, WHITE)
-                title_rect = title.get_rect(center=(GAME_WIDTH//2, GAME_HEIGHT//4))
+                title_rect = title.get_rect(center=(WINDOW_WIDTH//2, WINDOW_HEIGHT//4))
                 self.screen.blit(title, title_rect)
                 break  
 
             for i, lang in enumerate(self.languages):
                 color = WHITE if i == self.selected_index else GRAY
                 text = self.font.render(TRANSLATIONS[lang]['language_name'], True, color)
-                rect = text.get_rect(center=(GAME_WIDTH//2, GAME_HEIGHT//2 + i * 60))
+                rect = text.get_rect(center=(WINDOW_WIDTH//2, WINDOW_HEIGHT//2 + i * 60))
                 
                 if i == self.selected_index:
                     pygame.draw.rect(self.screen, color, rect.inflate(20, 10), 2)
@@ -487,7 +488,7 @@ class LanguageSelector:
             instruction_font = pygame.font.Font(None, 36)
             for lang in self.languages:
                 instruction = instruction_font.render(TRANSLATIONS[lang]['press_to_select'], True, GRAY)
-                instruction_rect = instruction.get_rect(center=(GAME_WIDTH//2, GAME_HEIGHT * 3//4))
+                instruction_rect = instruction.get_rect(center=(WINDOW_WIDTH//2, WINDOW_HEIGHT * 3//4))
                 self.screen.blit(instruction, instruction_rect)
                 break  
 
@@ -512,9 +513,9 @@ class MenuOption:
 
 def show_character_menu(screen, clock, language):
     menu_options = [
-        MenuOption(TRANSLATIONS[language]['character_jonas'], (GAME_WIDTH//2 - 100, GAME_HEIGHT//2 - 60)),
-        MenuOption(TRANSLATIONS[language]['character_robert'], (GAME_WIDTH//2 - 100, GAME_HEIGHT//2)),
-        MenuOption(TRANSLATIONS[language]['character_sebastian'], (GAME_WIDTH//2 - 100, GAME_HEIGHT//2 + 60))
+        MenuOption('Jonas', (WINDOW_WIDTH//2 - 100, WINDOW_HEIGHT//2 - 60)),
+        MenuOption('Robert', (WINDOW_WIDTH//2 - 100, WINDOW_HEIGHT//2)),
+        MenuOption('Sebastian', (WINDOW_WIDTH//2 - 100, WINDOW_HEIGHT//2 + 60))
     ]
     
     selected_option = 0
@@ -535,13 +536,15 @@ def show_character_menu(screen, clock, language):
                     selected_option = (selected_option + 1) % len(menu_options)
                     menu_options[selected_option].is_selected = True
                 elif event.key == K_RETURN:
-                    return menu_options[selected_option].text.replace(TRANSLATIONS[language]['character_'], '')
+                    return menu_options[selected_option].text
+            elif event.type == JOYBUTTONDOWN and event.button == 0:  
+                return menu_options[selected_option].text
         
         screen.fill(BLACK)
         
         title_font = pygame.font.Font(None, 64)
-        title = title_font.render(TRANSLATIONS[language]['select_character'], True, WHITE)
-        title_rect = title.get_rect(center=(GAME_WIDTH//2, GAME_HEIGHT//4))
+        title = title_font.render("Wähle deinen Charakter", True, WHITE)
+        title_rect = title.get_rect(center=(WINDOW_WIDTH//2, WINDOW_HEIGHT//4))
         screen.blit(title, title_rect)
         
         for option in menu_options:
@@ -576,10 +579,10 @@ def create_letters(difficulty):
                 pos_x = x * CELL_SIZE + (CELL_SIZE - LETTER_SIZE) // 2
                 pos_y = y * CELL_SIZE + (CELL_SIZE - LETTER_SIZE) // 2
                 
-                # Überprüfe Mindestabstand zum Start (4 Felder)
+                # Überprüfe Mindestabstand zum Start (2 Felder)
                 start_x = int(1.5 * CELL_SIZE)
                 start_y = int(1.5 * CELL_SIZE)
-                if abs(pos_x - start_x) > CELL_SIZE * 4 or abs(pos_y - start_y) > CELL_SIZE * 4:
+                if abs(pos_x - start_x) > CELL_SIZE * 2 or abs(pos_y - start_y) > CELL_SIZE * 2:
                     available_positions.append((pos_x, pos_y))
     
     print(f"Verfügbare Positionen: {len(available_positions)}")
@@ -633,54 +636,7 @@ def check_boss_collision(player, bosses):
             
     return False
 
-def create_bosses(difficulty, boss_images):
-    bosses = []
-    num_bosses = DIFFICULTY_SETTINGS[difficulty]['num_bosses']
-    boss_names = ['Louis', 'Jannik', 'Tom', 'Phillip'][:num_bosses]  # Begrenzt auf die gewünschte Anzahl
-    
-    # Definiere die vier Ecken des Labyrinths als Startpositionen
-    corner_positions = [
-        (1 * CELL_SIZE, 1 * CELL_SIZE),                    # Oben links
-        ((len(MAZE_LAYOUT[0])-2) * CELL_SIZE, 1 * CELL_SIZE),          # Oben rechts
-        (1 * CELL_SIZE, (len(MAZE_LAYOUT)-2) * CELL_SIZE),             # Unten links
-        ((len(MAZE_LAYOUT[0])-2) * CELL_SIZE, (len(MAZE_LAYOUT)-2) * CELL_SIZE)  # Unten rechts
-    ]
-    
-    # Stelle sicher, dass die Positionen auf Wegen liegen
-    valid_corner_positions = []
-    for x, y in corner_positions:
-        grid_x = int(x / CELL_SIZE)
-        grid_y = int(y / CELL_SIZE)
-        if MAZE_LAYOUT[grid_y][grid_x] == 0:  # Wenn es ein Weg ist
-            valid_corner_positions.append((x, y))
-    
-    # Wenn nicht genug gültige Eckpositionen, suche weitere freie Positionen
-    if len(valid_corner_positions) < num_bosses:
-        for y in range(len(MAZE_LAYOUT)):
-            for x in range(len(MAZE_LAYOUT[0])):
-                if MAZE_LAYOUT[y][x] == 0:  # Wenn es ein Weg ist
-                    pos_x = x * CELL_SIZE
-                    pos_y = y * CELL_SIZE
-                    # Mindestabstand zum Spielerstart (5 Felder)
-                    start_x = int(1.5 * CELL_SIZE)
-                    start_y = int(1.5 * CELL_SIZE)
-                    if abs(pos_x - start_x) > CELL_SIZE * 5 or abs(pos_y - start_y) > CELL_SIZE * 5:
-                        valid_corner_positions.append((pos_x, pos_y))
-    
-    # Wähle zufällige Positionen für die Bosse
-    selected_positions = random.sample(valid_corner_positions, num_bosses)
-    
-    # Erstelle die Bosse mit gestaffelten Spawn-Zeiten
-    for i, (name, (x, y)) in enumerate(zip(boss_names, selected_positions)):
-        speed_type = random.choice(['normal', 'fast', 'faster', 'fastest'])
-        speed = DIFFICULTY_SETTINGS[difficulty]['speeds'][speed_type]
-        # Staffele die Spawn-Zeiten (20 Sekunden Abstand)
-        spawn_time = time.time() + (i * 20)  # Kürzerer Abstand
-        bosses.append(Boss(x, y, name, speed, boss_images[name], spawn_time, difficulty))
-    
-    return bosses
-
-def draw_game(screen, walls, player, bosses, letters, collection_display, timer, language, difficulty, game_over=False, game_over_reason=None, paths=None, wall_img=None, path_img=None, boss_images=None):
+def draw_game(screen, walls, player, bosses, letters, collection_display, timer, language, difficulty, game_over=False, game_over_reason=None, paths=None, wall_img=None, path_img=None):
     # Draw background
     screen.fill(BLACK)
     
@@ -737,7 +693,7 @@ def draw_game(screen, walls, player, bosses, letters, collection_display, timer,
     if not game_over:
         # Create circular vision area
         vision_radius_px = VISION_RADIUS * CELL_SIZE
-        vision_surface = pygame.Surface((GAME_WIDTH, GAME_HEIGHT), pygame.SRCALPHA)
+        vision_surface = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA)
         vision_surface.fill((0, 0, 0, FOG_ALPHA))  # Semi-transparent black
         
         # Create a circle mask for the vision
@@ -755,12 +711,12 @@ def draw_game(screen, walls, player, bosses, letters, collection_display, timer,
     # Draw difficulty text
     font = pygame.font.Font(None, 36)
     difficulty_text = font.render(f"{TRANSLATIONS[language][difficulty]}", True, WHITE)
-    difficulty_rect = difficulty_text.get_rect(bottomleft=(20, GAME_HEIGHT - 20))
+    difficulty_rect = difficulty_text.get_rect(bottomleft=(20, WINDOW_HEIGHT - 20))
     screen.blit(difficulty_text, difficulty_rect)
     
     if game_over:
         # Draw semi-transparent overlay
-        overlay = pygame.Surface((GAME_WIDTH, GAME_HEIGHT))
+        overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT))
         overlay.set_alpha(128)
         overlay.fill(BLACK)
         screen.blit(overlay, (0, 0))
@@ -774,17 +730,15 @@ def draw_game(screen, walls, player, bosses, letters, collection_display, timer,
         else:
             text = font.render("Game Over!", True, (255, 0, 0))  # Red text
         
-        text_rect = text.get_rect(center=(GAME_WIDTH // 2, GAME_HEIGHT // 2 - 100))
+        text_rect = text.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2 - 100))
         screen.blit(text, text_rect)
         
         if game_over_reason == 'win':
-            question_rect = question.get_rect(center=(GAME_WIDTH // 2, GAME_HEIGHT // 2))
+            question_rect = question.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2))
             screen.blit(question, question_rect)
-            answer_rect = answer.get_rect(center=(GAME_WIDTH // 2, GAME_HEIGHT // 2 + 100))
+            answer_rect = answer.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2 + 100))
             screen.blit(answer, answer_rect)
     
-    # Zentriere das Spiel auf dem Display
-    screen.blit(screen, (GAME_OFFSET_X, GAME_OFFSET_Y))
     pygame.display.flip()
 
 def show_menu(screen, clock, language):
@@ -796,9 +750,9 @@ def show_menu(screen, clock, language):
     }
     
     menu_options = [
-        MenuOption(TRANSLATIONS[language]['easy'], (GAME_WIDTH//2 - 100, GAME_HEIGHT//2 - 60)),
-        MenuOption(TRANSLATIONS[language]['medium'], (GAME_WIDTH//2 - 100, GAME_HEIGHT//2)),
-        MenuOption(TRANSLATIONS[language]['hard'], (GAME_WIDTH//2 - 100, GAME_HEIGHT//2 + 60))
+        MenuOption(TRANSLATIONS[language]['easy'], (WINDOW_WIDTH//2 - 100, WINDOW_HEIGHT//2 - 60)),
+        MenuOption(TRANSLATIONS[language]['medium'], (WINDOW_WIDTH//2 - 100, WINDOW_HEIGHT//2)),
+        MenuOption(TRANSLATIONS[language]['hard'], (WINDOW_WIDTH//2 - 100, WINDOW_HEIGHT//2 + 60))
     ]
     
     selected_option = 0
@@ -827,7 +781,7 @@ def show_menu(screen, clock, language):
         
         title_font = pygame.font.Font(None, 64)
         title = title_font.render(TRANSLATIONS[language]['menu_title'], True, WHITE)
-        title_rect = title.get_rect(center=(GAME_WIDTH//2, GAME_HEIGHT//4))
+        title_rect = title.get_rect(center=(WINDOW_WIDTH//2, WINDOW_HEIGHT//4))
         screen.blit(title, title_rect)
         
         for option in menu_options:
@@ -836,32 +790,8 @@ def show_menu(screen, clock, language):
         pygame.display.flip()
         clock.tick(60)
 
-def load_images():
-    # Lade die Spielerbilder
-    player_images = {
-        'Jonas': pygame.transform.scale(pygame.image.load('images/jonas.png'), (PLAYER_SIZE, PLAYER_SIZE)),
-        'Robert': pygame.transform.scale(pygame.image.load('images/robert.png'), (PLAYER_SIZE, PLAYER_SIZE)),
-        'Sebastian': pygame.transform.scale(pygame.image.load('images/sebastian.png'), (PLAYER_SIZE, PLAYER_SIZE))
-    }
-    
-    # Lade Boss-Bilder
-    boss_images = {
-        'Louis': pygame.transform.scale(pygame.image.load('images/louis.png'), (BOSS_SIZE, BOSS_SIZE)),
-        'Jannik': pygame.transform.scale(pygame.image.load('images/jannik.png'), (BOSS_SIZE, BOSS_SIZE)),
-        'Tom': pygame.transform.scale(pygame.image.load('images/tom.png'), (BOSS_SIZE, BOSS_SIZE)),
-        'Phillip': pygame.transform.scale(pygame.image.load('images/phillip.png'), (BOSS_SIZE, BOSS_SIZE))
-    }
-
-    # Lade Wand- und Weg-Texturen
-    wall_img = pygame.image.load('images/wall.png')
-    wall_img = pygame.transform.scale(wall_img, (CELL_SIZE, CELL_SIZE))
-    path_img = pygame.image.load('images/path.png')
-    path_img = pygame.transform.scale(path_img, (CELL_SIZE, CELL_SIZE))
-    
-    return player_images, boss_images, wall_img, path_img
-
 def main():
-    screen = pygame.display.set_mode((DISPLAY_WIDTH, DISPLAY_HEIGHT))
+    screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
     pygame.display.set_caption('Weidmüller Escape Room Labyrinth')
     clock = pygame.time.Clock()
     
@@ -883,7 +813,12 @@ def main():
         timer = Timer(DIFFICULTY_SETTINGS[difficulty]['time_limit'])
         
         # Create bosses with different spawn times
-        bosses = create_bosses(difficulty, boss_images)
+        bosses = [
+            Boss(CELL_SIZE * 23, CELL_SIZE * 1, 'normal', RED, 'Louis', boss_images['Louis'], 0, difficulty),
+            Boss(CELL_SIZE * 1, CELL_SIZE * 13, 'fast', PURPLE, 'Jannik', boss_images['Jannik'], 30, difficulty),  # Spawn after 30 seconds
+            Boss(CELL_SIZE * 23, CELL_SIZE * 13, 'faster', CYAN, 'Tom', boss_images['Tom'], 60, difficulty),  # Spawn after 1 minute
+            Boss(CELL_SIZE * 12, CELL_SIZE * 7, 'fastest', ORANGE, 'Phillip', boss_images['Phillip'], 90, difficulty)  # Spawn after 1.5 minutes
+        ]
         
         game_over = False
         game_over_reason = ""
@@ -911,7 +846,7 @@ def main():
                 for boss in bosses:
                     if elapsed_time >= boss.spawn_time:
                         boss.active = True
-                    boss.update(player, walls)
+                    boss.move_towards_player(player, walls, MAZE_LAYOUT)
                 
                 if check_boss_collision(player, bosses):
                     game_over = True
@@ -928,12 +863,12 @@ def main():
                     game_over = True
                     game_over_reason = 'time_up'
                 
-            draw_game(screen, walls, player, bosses, letters, collection_display, timer, language, difficulty, game_over, game_over_reason, paths, wall_img, path_img, boss_images)
+            draw_game(screen, walls, player, bosses, letters, collection_display, timer, language, difficulty, game_over, game_over_reason, paths, wall_img, path_img)
         
         # If we get here, the game is restarting
         if game_over_reason == 'win':
             # Draw semi-transparent overlay
-            overlay = pygame.Surface((GAME_WIDTH, GAME_HEIGHT))
+            overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT))
             overlay.set_alpha(128)
             overlay.fill(BLACK)
             screen.blit(overlay, (0, 0))
@@ -941,15 +876,15 @@ def main():
             # Draw win text
             font = pygame.font.Font(None, 74)
             text = font.render("Escape Successful!", True, (0, 255, 0))
-            text_rect = text.get_rect(center=(GAME_WIDTH // 2, GAME_HEIGHT // 2 - 100))
+            text_rect = text.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2 - 100))
             screen.blit(text, text_rect)
             
             # Draw question and answer
             question = font.render("Der Hauptsitz liegt in?", True, WHITE)
             answer = font.render("DETMOLD", True, WHITE)
             
-            question_rect = question.get_rect(center=(GAME_WIDTH // 2, GAME_HEIGHT // 2))
-            answer_rect = answer.get_rect(center=(GAME_WIDTH // 2, GAME_HEIGHT // 2 + 100))
+            question_rect = question.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2))
+            answer_rect = answer.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2 + 100))
             
             screen.blit(question, question_rect)
             screen.blit(answer, answer_rect)
