@@ -122,23 +122,42 @@ class Player:
         if current_time - self.last_move_time < self.move_delay:
             return
 
-        keys = pygame.key.get_pressed()
         dx = 0
         dy = 0
 
-        # Only allow one direction at a time for more precise control
-        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
-            dx = -1
-        elif keys[pygame.K_RIGHT] or keys[pygame.K_d]:
-            dx = 1
-        elif keys[pygame.K_UP] or keys[pygame.K_w]:
-            dy = -1
-        elif keys[pygame.K_DOWN] or keys[pygame.K_s]:
-            dy = 1
+        # Tastatureingaben
+        keys = pygame.key.get_pressed()
+        if keys[K_LEFT] or keys[K_a]:
+            dx = -self.speed
+        if keys[K_RIGHT] or keys[K_d]:
+            dx = self.speed
+        if keys[K_UP] or keys[K_w]:
+            dy = -self.speed
+        if keys[K_DOWN] or keys[K_s]:
+            dy = self.speed
 
-        if dx != 0 and dy != 0:
-            dx *= 0.7071
-            dy *= 0.7071
+        # Controller-Eingaben
+        for joystick in [pygame.joystick.Joystick(i) for i in range(pygame.joystick.get_count())]:
+            # Linker Analogstick
+            x_axis = joystick.get_axis(0)  # X-Achse
+            y_axis = joystick.get_axis(1)  # Y-Achse
+            
+            # Deadzone von 0.2
+            if abs(x_axis) > 0.2:
+                dx = self.speed * x_axis
+            if abs(y_axis) > 0.2:
+                dy = self.speed * y_axis
+            
+            # D-Pad
+            hat = joystick.get_hat(0)
+            if hat[0] == -1:  # Links
+                dx = -self.speed
+            elif hat[0] == 1:  # Rechts
+                dx = self.speed
+            if hat[1] == 1:   # Oben
+                dy = -self.speed
+            elif hat[1] == -1: # Unten
+                dy = self.speed
 
         if dx != 0 or dy != 0:
             self.move(dx, dy, walls)
@@ -146,8 +165,8 @@ class Player:
 
     def move(self, dx, dy, walls):
         # Move at constant speed
-        new_x = self.x + dx * self.speed
-        new_y = self.y + dy * self.speed
+        new_x = self.x + dx
+        new_y = self.y + dy
         
         # Update both visual and hitbox rectangles
         hitbox_size = int(PLAYER_SIZE * 0.4)
@@ -526,6 +545,12 @@ def show_character_menu(screen, clock, language):
     selected_option = 0
     menu_options[selected_option].is_selected = True
     
+    # Controller Setup
+    pygame.joystick.init()
+    joysticks = [pygame.joystick.Joystick(i) for i in range(pygame.joystick.get_count())]
+    for joystick in joysticks:
+        joystick.init()
+    
     while True:
         for event in pygame.event.get():
             if event.type == QUIT:
@@ -540,18 +565,45 @@ def show_character_menu(screen, clock, language):
                     menu_options[selected_option].is_selected = False
                     selected_option = (selected_option + 1) % len(menu_options)
                     menu_options[selected_option].is_selected = True
-                elif event.key == K_RETURN:
-                    return menu_options[selected_option].text
-        
+                elif event.key in (K_RETURN, K_SPACE):
+                    return character_names[selected_option]
+            # Controller Events
+            elif event.type == JOYBUTTONDOWN:
+                if event.button == 1:  # X Button (PS4)
+                    return character_names[selected_option]
+            elif event.type == JOYAXISMOTION:
+                if event.axis == 1:  # Vertikale Achse
+                    if event.value > 0.5:  # Nach unten
+                        menu_options[selected_option].is_selected = False
+                        selected_option = (selected_option + 1) % len(menu_options)
+                        menu_options[selected_option].is_selected = True
+                    elif event.value < -0.5:  # Nach oben
+                        menu_options[selected_option].is_selected = False
+                        selected_option = (selected_option - 1) % len(menu_options)
+                        menu_options[selected_option].is_selected = True
+
         screen.fill(BLACK)
         
-        title_font = pygame.font.Font(None, 64)
+        # Zeichne Titel
+        title_font = pygame.font.Font(None, 74)
         title = title_font.render(TRANSLATIONS[language]['select_character'], True, WHITE)
         title_rect = title.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT//4))
         screen.blit(title, title_rect)
         
+        # Zeichne Menüoptionen
         for option in menu_options:
             option.draw(screen)
+        
+        # Zeichne Steuerungshinweise
+        hint_font = pygame.font.Font(None, 36)
+        keyboard_hint = hint_font.render(TRANSLATIONS[language]['press_to_select'], True, GRAY)
+        controller_hint = hint_font.render(TRANSLATIONS[language]['press_x_to_select'], True, GRAY)
+        
+        keyboard_rect = keyboard_hint.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT * 3//4))
+        controller_rect = controller_hint.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT * 3//4 + 40))
+        
+        screen.blit(keyboard_hint, keyboard_rect)
+        screen.blit(controller_hint, controller_rect)
         
         pygame.display.flip()
         clock.tick(60)
@@ -895,47 +947,76 @@ def show_menu(screen, clock, language):
         clock.tick(60)
 
 def show_character_menu(screen, clock, language):
+    # Definiere die Charakternamen direkt
+    character_names = ['Jonas', 'Robert', 'Sebastian']
+    
     menu_options = [
-        MenuOption('Jonas', (DISPLAY_WIDTH//2 - 100, DISPLAY_HEIGHT//2 - 60)),
-        MenuOption('Robert', (DISPLAY_WIDTH//2 - 100, DISPLAY_HEIGHT//2)),
-        MenuOption('Sebastian', (DISPLAY_WIDTH//2 - 100, DISPLAY_HEIGHT//2 + 60))
+        MenuOption(name, (DISPLAY_WIDTH//2 - 100, DISPLAY_HEIGHT//2 - 60 + i * 60))
+        for i, name in enumerate(character_names)
     ]
     
     selected_option = 0
+    menu_options[selected_option].is_selected = True
+    
+    # Controller Setup
+    pygame.joystick.init()
+    joysticks = [pygame.joystick.Joystick(i) for i in range(pygame.joystick.get_count())]
+    for joystick in joysticks:
+        joystick.init()
     
     while True:
         for event in pygame.event.get():
             if event.type == QUIT:
                 pygame.quit()
                 sys.exit()
-            
-            if event.type == KEYDOWN:
+            elif event.type == KEYDOWN:
                 if event.key == K_UP:
+                    menu_options[selected_option].is_selected = False
                     selected_option = (selected_option - 1) % len(menu_options)
+                    menu_options[selected_option].is_selected = True
                 elif event.key == K_DOWN:
+                    menu_options[selected_option].is_selected = False
                     selected_option = (selected_option + 1) % len(menu_options)
-                elif event.key == K_RETURN:
-                    return menu_options[selected_option].text
-        
+                    menu_options[selected_option].is_selected = True
+                elif event.key in (K_RETURN, K_SPACE):
+                    return character_names[selected_option]
+            # Controller Events
+            elif event.type == JOYBUTTONDOWN:
+                if event.button == 1:  # X Button (PS4)
+                    return character_names[selected_option]
+            elif event.type == JOYAXISMOTION:
+                if event.axis == 1:  # Vertikale Achse
+                    if event.value > 0.5:  # Nach unten
+                        menu_options[selected_option].is_selected = False
+                        selected_option = (selected_option + 1) % len(menu_options)
+                        menu_options[selected_option].is_selected = True
+                    elif event.value < -0.5:  # Nach oben
+                        menu_options[selected_option].is_selected = False
+                        selected_option = (selected_option - 1) % len(menu_options)
+                        menu_options[selected_option].is_selected = True
+
         screen.fill(BLACK)
         
-        title_font = pygame.font.Font(None, 64)
+        # Zeichne Titel
+        title_font = pygame.font.Font(None, 74)
         title = title_font.render(TRANSLATIONS[language]['select_character'], True, WHITE)
         title_rect = title.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT//4))
         screen.blit(title, title_rect)
         
-        for i, option in enumerate(menu_options):
-            color = WHITE if i == selected_option else GRAY
-            text = pygame.font.Font(None, 36).render(option.text, True, color)
-            text_rect = text.get_rect(center=option.pos)
-            if i == selected_option:
-                pygame.draw.rect(screen, color, text_rect.inflate(20, 10), 2)
-            screen.blit(text, text_rect)
+        # Zeichne Menüoptionen
+        for option in menu_options:
+            option.draw(screen)
         
-        instruction_font = pygame.font.Font(None, 36)
-        instruction = instruction_font.render(TRANSLATIONS[language]['press_to_select'], True, GRAY)
-        instruction_rect = instruction.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT * 3//4))
-        screen.blit(instruction, instruction_rect)
+        # Zeichne Steuerungshinweise
+        hint_font = pygame.font.Font(None, 36)
+        keyboard_hint = hint_font.render(TRANSLATIONS[language]['press_to_select'], True, GRAY)
+        controller_hint = hint_font.render(TRANSLATIONS[language]['press_x_to_select'], True, GRAY)
+        
+        keyboard_rect = keyboard_hint.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT * 3//4))
+        controller_rect = controller_hint.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT * 3//4 + 40))
+        
+        screen.blit(keyboard_hint, keyboard_rect)
+        screen.blit(controller_hint, controller_rect)
         
         pygame.display.flip()
         clock.tick(60)
