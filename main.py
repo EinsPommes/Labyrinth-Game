@@ -1131,6 +1131,47 @@ def show_menu(screen, clock, language):
         pygame.display.flip()
         clock.tick(60)
 
+def show_game_over(screen, clock, game_over_reason, language):
+    font = pygame.font.Font(None, 74)
+    
+    # Text basierend auf Spielende-Grund
+    if game_over_reason == 'caught':
+        text = TRANSLATIONS[language]['caught_by_boss']
+    elif game_over_reason == 'time_up':
+        text = TRANSLATIONS[language]['time_up']
+    elif game_over_reason == 'win':
+        text = TRANSLATIONS[language]['you_won']
+    else:
+        text = TRANSLATIONS[language]['game_over']
+    
+    text_surface = font.render(text, True, WHITE)
+    text_rect = text_surface.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT//2))
+    
+    # Hinweis zum Neustart
+    hint_font = pygame.font.Font(None, 36)
+    hint_text = TRANSLATIONS[language]['press_to_restart']
+    hint_surface = hint_font.render(hint_text, True, GRAY)
+    hint_rect = hint_surface.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT * 3//4))
+    
+    waiting = True
+    while waiting:
+        for event in pygame.event.get():
+            if event.type == QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == KEYDOWN:
+                if event.key in (K_RETURN, K_SPACE):
+                    waiting = False
+            elif event.type == JOYBUTTONDOWN:
+                if event.button == 0:  # X-Button (PS4)
+                    waiting = False
+        
+        screen.fill(BLACK)
+        screen.blit(text_surface, text_rect)
+        screen.blit(hint_surface, hint_rect)
+        pygame.display.flip()
+        clock.tick(60)
+
 def main():
     pygame.init()
     pygame.joystick.init()
