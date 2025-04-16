@@ -611,7 +611,7 @@ def create_bosses(difficulty, boss_images):
 def create_letters(difficulty):
     letters = []
     target_word = DIFFICULTY_SETTINGS[difficulty]['letters']
-    print(f"Zielwort: {target_word} (Länge: {len(target_word)})")
+    print(f"Zielwort: {target_word} (Länge: {len(target_word)})")  # Debug
     
     # Finde alle verfügbaren Positionen
     available_positions = []
@@ -626,10 +626,9 @@ def create_letters(difficulty):
                 if abs(pos_x - start_x) > CELL_SIZE * 3 or abs(pos_y - start_y) > CELL_SIZE * 3:
                     available_positions.append((pos_x, pos_y))
     
-    print(f"Verfügbare Positionen: {len(available_positions)}")
+    print(f"Verfügbare Positionen: {len(available_positions)}")  # Debug
     
     # Wähle zufällige Positionen für jeden Buchstaben
-    letter_count = 0
     for i, char in enumerate(target_word):
         if available_positions:
             pos = random.choice(available_positions)
@@ -640,17 +639,16 @@ def create_letters(difficulty):
                 'y': pos[1],
                 'collected': False
             })
-            letter_count += 1
-            print(f"Platziere Buchstabe {i}: {char}")
+            print(f"Platziere Buchstabe {char} an Position {pos}")  # Debug
     
-    print(f"Platzierte Buchstaben: {letter_count}")
+    print(f"Platzierte Buchstaben: {len(letters)}")  # Debug
     return letters
 
 def check_letter_collection(player, letters, collection_display):
     for letter in letters[:]:  # Kopie der Liste zum Iterieren
         letter_rect = pygame.Rect(
-            letter['x'] + GAME_OFFSET_X,
-            letter['y'] + GAME_OFFSET_Y,
+            letter['x'],  # Ohne GAME_OFFSET
+            letter['y'],  # Ohne GAME_OFFSET
             LETTER_SIZE,
             LETTER_SIZE
         )
