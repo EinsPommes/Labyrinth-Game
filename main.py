@@ -515,6 +515,117 @@ class LanguageSelector:
 
         return self.languages[self.selected_index]
 
+class CharacterMenu:
+    def __init__(self, screen, clock, language):
+        self.screen = screen
+        self.clock = clock
+        self.language = language
+        self.character_names = ['Jonas', 'Robert', 'Sebastian']
+        self.selected_index = 0
+        
+        # Menüoptionen erstellen
+        self.menu_options = [
+            MenuOption(name, (DISPLAY_WIDTH//2 - 100, DISPLAY_HEIGHT//2 - 60 + i * 60))
+            for i, name in enumerate(self.character_names)
+        ]
+        self.menu_options[self.selected_index].is_selected = True
+        
+        # Controller Setup
+        pygame.joystick.init()
+        self.joysticks = [pygame.joystick.Joystick(i) for i in range(pygame.joystick.get_count())]
+        for joystick in self.joysticks:
+            joystick.init()
+        
+        # Zeitverzögerung für Joystick-Eingaben
+        self.last_joy_time = 0
+        self.joy_delay = 200  # Millisekunden
+    
+    def handle_input(self):
+        current_time = pygame.time.get_ticks()
+        
+        for event in pygame.event.get():
+            if event.type == QUIT:
+                pygame.quit()
+                sys.exit()
+            
+            # Tastatureingaben
+            if event.type == KEYDOWN:
+                if event.key == K_UP:
+                    self.menu_options[self.selected_index].is_selected = False
+                    self.selected_index = (self.selected_index - 1) % len(self.menu_options)
+                    self.menu_options[self.selected_index].is_selected = True
+                elif event.key == K_DOWN:
+                    self.menu_options[self.selected_index].is_selected = False
+                    self.selected_index = (self.selected_index + 1) % len(self.menu_options)
+                    self.menu_options[self.selected_index].is_selected = True
+                elif event.key in (K_RETURN, K_SPACE):
+                    return self.character_names[self.selected_index]
+            
+            # Controller-Eingaben
+            elif event.type == JOYBUTTONDOWN:
+                if event.button == 1:  # X-Button (PS4)
+                    return self.character_names[self.selected_index]
+            elif event.type == JOYAXISMOTION:
+                if current_time - self.last_joy_time > self.joy_delay:
+                    if event.axis == 1:  # Vertikale Achse
+                        if event.value > 0.5:  # Nach unten
+                            self.menu_options[self.selected_index].is_selected = False
+                            self.selected_index = (self.selected_index + 1) % len(self.menu_options)
+                            self.menu_options[self.selected_index].is_selected = True
+                            self.last_joy_time = current_time
+                        elif event.value < -0.5:  # Nach oben
+                            self.menu_options[self.selected_index].is_selected = False
+                            self.selected_index = (self.selected_index - 1) % len(self.menu_options)
+                            self.menu_options[self.selected_index].is_selected = True
+                            self.last_joy_time = current_time
+            elif event.type == JOYHATMOTION:
+                if current_time - self.last_joy_time > self.joy_delay:
+                    hat = event.value
+                    if hat[1] == 1:  # Nach oben
+                        self.menu_options[self.selected_index].is_selected = False
+                        self.selected_index = (self.selected_index - 1) % len(self.menu_options)
+                        self.menu_options[self.selected_index].is_selected = True
+                        self.last_joy_time = current_time
+                    elif hat[1] == -1:  # Nach unten
+                        self.menu_options[self.selected_index].is_selected = False
+                        self.selected_index = (self.selected_index + 1) % len(self.menu_options)
+                        self.menu_options[self.selected_index].is_selected = True
+                        self.last_joy_time = current_time
+        
+        return None
+    
+    def run(self):
+        while True:
+            result = self.handle_input()
+            if result is not None:
+                return result
+            
+            self.screen.fill(BLACK)
+            
+            # Titel
+            title_font = pygame.font.Font(None, 74)
+            title = title_font.render(TRANSLATIONS[self.language]['select_character'], True, WHITE)
+            title_rect = title.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT//4))
+            self.screen.blit(title, title_rect)
+            
+            # Menüoptionen
+            for option in self.menu_options:
+                option.draw(self.screen)
+            
+            # Steuerungshinweise
+            hint_font = pygame.font.Font(None, 36)
+            keyboard_hint = hint_font.render(TRANSLATIONS[self.language]['press_to_select'], True, GRAY)
+            controller_hint = hint_font.render(TRANSLATIONS[self.language]['press_x_to_select'], True, GRAY)
+            
+            keyboard_rect = keyboard_hint.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT * 3//4))
+            controller_rect = controller_hint.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT * 3//4 + 40))
+            
+            self.screen.blit(keyboard_hint, keyboard_rect)
+            self.screen.blit(controller_hint, controller_rect)
+            
+            pygame.display.flip()
+            self.clock.tick(60)
+
 class MenuOption:
     def __init__(self, text, position, size=(200, 50)):
         self.text = text
@@ -532,81 +643,6 @@ class MenuOption:
             pygame.draw.rect(screen, color, text_rect.inflate(20, 10), 2)
         
         screen.blit(text, text_rect)
-
-def show_character_menu(screen, clock, language):
-    # Definiere die Charakternamen direkt
-    character_names = ['Jonas', 'Robert', 'Sebastian']
-    
-    menu_options = [
-        MenuOption(name, (DISPLAY_WIDTH//2 - 100, DISPLAY_HEIGHT//2 - 60 + i * 60))
-        for i, name in enumerate(character_names)
-    ]
-    
-    selected_option = 0
-    menu_options[selected_option].is_selected = True
-    
-    # Controller Setup
-    pygame.joystick.init()
-    joysticks = [pygame.joystick.Joystick(i) for i in range(pygame.joystick.get_count())]
-    for joystick in joysticks:
-        joystick.init()
-    
-    while True:
-        for event in pygame.event.get():
-            if event.type == QUIT:
-                pygame.quit()
-                sys.exit()
-            elif event.type == KEYDOWN:
-                if event.key == K_UP:
-                    menu_options[selected_option].is_selected = False
-                    selected_option = (selected_option - 1) % len(menu_options)
-                    menu_options[selected_option].is_selected = True
-                elif event.key == K_DOWN:
-                    menu_options[selected_option].is_selected = False
-                    selected_option = (selected_option + 1) % len(menu_options)
-                    menu_options[selected_option].is_selected = True
-                elif event.key in (K_RETURN, K_SPACE):
-                    return character_names[selected_option]
-            # Controller Events
-            elif event.type == JOYBUTTONDOWN:
-                if event.button == 1:  # X Button (PS4)
-                    return character_names[selected_option]
-            elif event.type == JOYAXISMOTION:
-                if event.axis == 1:  # Vertikale Achse
-                    if event.value > 0.5:  # Nach unten
-                        menu_options[selected_option].is_selected = False
-                        selected_option = (selected_option + 1) % len(menu_options)
-                        menu_options[selected_option].is_selected = True
-                    elif event.value < -0.5:  # Nach oben
-                        menu_options[selected_option].is_selected = False
-                        selected_option = (selected_option - 1) % len(menu_options)
-                        menu_options[selected_option].is_selected = True
-
-        screen.fill(BLACK)
-        
-        # Zeichne Titel
-        title_font = pygame.font.Font(None, 74)
-        title = title_font.render(TRANSLATIONS[language]['select_character'], True, WHITE)
-        title_rect = title.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT//4))
-        screen.blit(title, title_rect)
-        
-        # Zeichne Menüoptionen
-        for option in menu_options:
-            option.draw(screen)
-        
-        # Zeichne Steuerungshinweise
-        hint_font = pygame.font.Font(None, 36)
-        keyboard_hint = hint_font.render(TRANSLATIONS[language]['press_to_select'], True, GRAY)
-        controller_hint = hint_font.render(TRANSLATIONS[language]['press_x_to_select'], True, GRAY)
-        
-        keyboard_rect = keyboard_hint.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT * 3//4))
-        controller_rect = controller_hint.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT * 3//4 + 40))
-        
-        screen.blit(keyboard_hint, keyboard_rect)
-        screen.blit(controller_hint, controller_rect)
-        
-        pygame.display.flip()
-        clock.tick(60)
 
 def create_maze():
     walls = []
@@ -860,7 +896,7 @@ def draw_game(screen, walls, player, bosses, letters, collection_display, timer,
         pygame.draw.circle(vision_surface, (0, 0, 0, 0),
                          (int(player_center_x + GAME_OFFSET_X), 
                           int(player_center_y + GAME_OFFSET_Y)),
-                         vision_radius_px)
+                          vision_radius_px)
         
         # Apply the fog of war
         screen.blit(vision_surface, (0, 0))
@@ -946,81 +982,6 @@ def show_menu(screen, clock, language):
         pygame.display.flip()
         clock.tick(60)
 
-def show_character_menu(screen, clock, language):
-    # Definiere die Charakternamen direkt
-    character_names = ['Jonas', 'Robert', 'Sebastian']
-    
-    menu_options = [
-        MenuOption(name, (DISPLAY_WIDTH//2 - 100, DISPLAY_HEIGHT//2 - 60 + i * 60))
-        for i, name in enumerate(character_names)
-    ]
-    
-    selected_option = 0
-    menu_options[selected_option].is_selected = True
-    
-    # Controller Setup
-    pygame.joystick.init()
-    joysticks = [pygame.joystick.Joystick(i) for i in range(pygame.joystick.get_count())]
-    for joystick in joysticks:
-        joystick.init()
-    
-    while True:
-        for event in pygame.event.get():
-            if event.type == QUIT:
-                pygame.quit()
-                sys.exit()
-            elif event.type == KEYDOWN:
-                if event.key == K_UP:
-                    menu_options[selected_option].is_selected = False
-                    selected_option = (selected_option - 1) % len(menu_options)
-                    menu_options[selected_option].is_selected = True
-                elif event.key == K_DOWN:
-                    menu_options[selected_option].is_selected = False
-                    selected_option = (selected_option + 1) % len(menu_options)
-                    menu_options[selected_option].is_selected = True
-                elif event.key in (K_RETURN, K_SPACE):
-                    return character_names[selected_option]
-            # Controller Events
-            elif event.type == JOYBUTTONDOWN:
-                if event.button == 1:  # X Button (PS4)
-                    return character_names[selected_option]
-            elif event.type == JOYAXISMOTION:
-                if event.axis == 1:  # Vertikale Achse
-                    if event.value > 0.5:  # Nach unten
-                        menu_options[selected_option].is_selected = False
-                        selected_option = (selected_option + 1) % len(menu_options)
-                        menu_options[selected_option].is_selected = True
-                    elif event.value < -0.5:  # Nach oben
-                        menu_options[selected_option].is_selected = False
-                        selected_option = (selected_option - 1) % len(menu_options)
-                        menu_options[selected_option].is_selected = True
-
-        screen.fill(BLACK)
-        
-        # Zeichne Titel
-        title_font = pygame.font.Font(None, 74)
-        title = title_font.render(TRANSLATIONS[language]['select_character'], True, WHITE)
-        title_rect = title.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT//4))
-        screen.blit(title, title_rect)
-        
-        # Zeichne Menüoptionen
-        for option in menu_options:
-            option.draw(screen)
-        
-        # Zeichne Steuerungshinweise
-        hint_font = pygame.font.Font(None, 36)
-        keyboard_hint = hint_font.render(TRANSLATIONS[language]['press_to_select'], True, GRAY)
-        controller_hint = hint_font.render(TRANSLATIONS[language]['press_x_to_select'], True, GRAY)
-        
-        keyboard_rect = keyboard_hint.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT * 3//4))
-        controller_rect = controller_hint.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT * 3//4 + 40))
-        
-        screen.blit(keyboard_hint, keyboard_rect)
-        screen.blit(controller_hint, controller_rect)
-        
-        pygame.display.flip()
-        clock.tick(60)
-
 def main():
     screen = pygame.display.set_mode((DISPLAY_WIDTH, DISPLAY_HEIGHT))
     pygame.display.set_caption('Weidmüller Escape Room Labyrinth')
@@ -1029,10 +990,11 @@ def main():
     # Load images
     player_images, boss_images, wall_img, path_img = load_images()
     
-    language_selector = LanguageSelector(screen, clock)
-    language = language_selector.show()
+    language_selector = LanguageMenu(screen, clock)
+    language = language_selector.run()
     
-    character = show_character_menu(screen, clock, language)
+    character_menu = CharacterMenu(screen, clock, language)
+    character = character_menu.run()
     
     while True:  
         difficulty = show_menu(screen, clock, language)
