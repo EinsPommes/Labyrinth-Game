@@ -973,47 +973,88 @@ def draw_game(screen, walls, player, bosses, letters, collection_display, timer,
     pygame.display.flip()
 
 def show_menu(screen, clock, language):
-    menu_options = [
-        MenuOption(TRANSLATIONS[language]['easy'], (DISPLAY_WIDTH//2 - 100, DISPLAY_HEIGHT//2 - 60)),
-        MenuOption(TRANSLATIONS[language]['medium'], (DISPLAY_WIDTH//2 - 100, DISPLAY_HEIGHT//2)),
-        MenuOption(TRANSLATIONS[language]['hard'], (DISPLAY_WIDTH//2 - 100, DISPLAY_HEIGHT//2 + 60))
-    ]
+    difficulties = ['easy', 'medium', 'hard']
+    selected_index = 0
     
-    selected_option = 0
+    # Controller Setup
+    pygame.joystick.init()
+    joysticks = [pygame.joystick.Joystick(i) for i in range(pygame.joystick.get_count())]
+    for joystick in joysticks:
+        joystick.init()
+    
+    # Zeitverzögerung für Joystick-Eingaben
+    last_joy_time = 0
+    joy_delay = 200  # Millisekunden
     
     while True:
+        current_time = pygame.time.get_ticks()
+        
         for event in pygame.event.get():
             if event.type == QUIT:
                 pygame.quit()
                 sys.exit()
-            
+                
+            # Tastatureingaben
             if event.type == KEYDOWN:
                 if event.key == K_UP:
-                    selected_option = (selected_option - 1) % len(menu_options)
+                    selected_index = (selected_index - 1) % len(difficulties)
                 elif event.key == K_DOWN:
-                    selected_option = (selected_option + 1) % len(menu_options)
-                elif event.key == K_RETURN:
-                    if selected_option == 0:
-                        return 'easy'
-                    elif selected_option == 1:
-                        return 'medium'
-                    else:
-                        return 'hard'
+                    selected_index = (selected_index + 1) % len(difficulties)
+                elif event.key in (K_RETURN, K_SPACE):
+                    return difficulties[selected_index]
+            
+            # Controller-Eingaben
+            elif event.type == JOYBUTTONDOWN:
+                if event.button == 1:  # X-Button (PS4)
+                    return difficulties[selected_index]
+            elif event.type == JOYAXISMOTION:
+                if current_time - last_joy_time > joy_delay:
+                    if event.axis == 1:  # Vertikale Achse
+                        if event.value > 0.5:  # Nach unten
+                            selected_index = (selected_index + 1) % len(difficulties)
+                            last_joy_time = current_time
+                        elif event.value < -0.5:  # Nach oben
+                            selected_index = (selected_index - 1) % len(difficulties)
+                            last_joy_time = current_time
+            elif event.type == JOYHATMOTION:
+                if current_time - last_joy_time > joy_delay:
+                    hat = event.value
+                    if hat[1] == 1:  # Nach oben
+                        selected_index = (selected_index - 1) % len(difficulties)
+                        last_joy_time = current_time
+                    elif hat[1] == -1:  # Nach unten
+                        selected_index = (selected_index + 1) % len(difficulties)
+                        last_joy_time = current_time
         
         screen.fill(BLACK)
         
-        title_font = pygame.font.Font(None, 64)
-        title = title_font.render(TRANSLATIONS[language]['menu_title'], True, WHITE)
+        # Titel
+        title_font = pygame.font.Font(None, 74)
+        title = title_font.render(TRANSLATIONS[language]['select_difficulty'], True, WHITE)
         title_rect = title.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT//4))
         screen.blit(title, title_rect)
         
-        for i, option in enumerate(menu_options):
-            color = WHITE if i == selected_option else GRAY
-            text = pygame.font.Font(None, 36).render(option.text, True, color)
-            text_rect = text.get_rect(center=option.pos)
-            if i == selected_option:
-                pygame.draw.rect(screen, color, text_rect.inflate(20, 10), 2)
-            screen.blit(text, text_rect)
+        # Schwierigkeitsgrade
+        for i, diff in enumerate(difficulties):
+            color = WHITE if i == selected_index else GRAY
+            text = pygame.font.Font(None, 48).render(TRANSLATIONS[language][diff], True, color)
+            rect = text.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT//2 + i * 60))
+            
+            if i == selected_index:
+                pygame.draw.rect(screen, color, rect.inflate(20, 10), 2)
+            
+            screen.blit(text, rect)
+        
+        # Steuerungshinweise
+        hint_font = pygame.font.Font(None, 36)
+        keyboard_hint = hint_font.render(TRANSLATIONS[language]['press_to_select'], True, GRAY)
+        controller_hint = hint_font.render(TRANSLATIONS[language]['press_x_to_select'], True, GRAY)
+        
+        keyboard_rect = keyboard_hint.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT * 3//4))
+        controller_rect = controller_hint.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT * 3//4 + 40))
+        
+        screen.blit(keyboard_hint, keyboard_rect)
+        screen.blit(controller_hint, controller_rect)
         
         pygame.display.flip()
         clock.tick(60)
