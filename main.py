@@ -718,7 +718,8 @@ def create_bosses(difficulty, boss_images):
         (1 * CELL_SIZE, 1 * CELL_SIZE)     # Oben links
     ]
     
-    
+    # Definiere die Boss-Konfigurationen (nur 3 Bosse: Tom, Jannik, Louis)
+    boss_configs = [
         {'name': 'Louis', 'speed': boss_speeds['fastest'], 'image': boss_images['red'], 'spawn_time': 1},
         {'name': 'Jannik', 'speed': boss_speeds['normal'], 'image': boss_images['blue'], 'spawn_time': 10},
         {'name': 'Tom', 'speed': boss_speeds['faster'], 'image': boss_images['green'], 'spawn_time': 20}
