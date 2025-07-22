@@ -1146,77 +1146,10 @@ class LoadingScreen:
         self.duration = 5.0  # 5 Sekunden
         self.start_time = None
         
-        # Versuche Weidmüller Logo zu laden
+        # Kein Logo mehr - nur Loading Screen
         self.logo = None
-        try:
-            # Versuche verschiedene mögliche Dateinamen
-            logo_paths = [
-                'images/weidmueller_logo.png'
-
-            ]
-            
-            for path in logo_paths:
-                try:
-                    print(f"Versuche Logo zu laden von: {path}")
-                    if os.path.exists(path):
-                        print(f"Datei existiert: {path}")
-                        self.logo = pygame.image.load(path)
-                        # Konvertiere zu RGBA für bessere Kompatibilität
-                        self.logo = self.logo.convert_alpha()
-                        # Skaliere das Logo auf eine angemessene Größe
-                        logo_width = min(400, DISPLAY_WIDTH - 100)
-                        logo_height = int(logo_width * self.logo.get_height() / self.logo.get_width())
-                        self.logo = pygame.transform.scale(self.logo, (logo_width, logo_height))
-                        print(f"Weidmüller Logo erfolgreich geladen von: {path}")
-                        print(f"Logo-Größe: {self.logo.get_width()}x{self.logo.get_height()}")
-                        break
-                    else:
-                        print(f"Datei existiert nicht: {path}")
-                except Exception as e:
-                    print(f"Fehler beim Laden von {path}: {e}")
-                    continue
-                    
-        except Exception as e:
-            print(f"Konnte Weidmüller Logo nicht laden: {e}")
-            self.logo = None
-        
-        # Fallback: Erstelle ein Text-Logo
-        if self.logo is None:
-            print("Kein Logo gefunden, erstelle Text-Logo...")
-            self.create_text_logo()
-        else:
-            print("Logo erfolgreich geladen!")
-        
-        # Test: Erstelle ein einfaches Test-Logo
-        print("Erstelle Test-Logo...")
-        test_logo = pygame.Surface((200, 100))
-        test_logo.fill(RED)
-        test_font = pygame.font.Font(None, 36)
-        test_text = test_font.render("TEST", True, WHITE)
-        test_rect = test_text.get_rect(center=(100, 50))
-        test_logo.blit(test_text, test_rect)
-        self.test_logo = test_logo
     
-    def create_text_logo(self):
-        """Erstellt ein Text-Logo als Fallback"""
-        # Erstelle eine Surface für das Text-Logo
-        logo_width = 400
-        logo_height = 200
-        self.logo = pygame.Surface((logo_width, logo_height), pygame.SRCALPHA)
-        
-        # Haupttext: WEIDMÜLLER
-        title_font = pygame.font.Font(None, 72)
-        title_text = title_font.render("WEIDMÜLLER", True, WHITE)
-        title_rect = title_text.get_rect(center=(logo_width//2, logo_height//2 - 20))
-        self.logo.blit(title_text, title_rect)
-        
-        # Untertitel
-        subtitle_font = pygame.font.Font(None, 36)
-        subtitle_text = subtitle_font.render("Escape Game", True, GRAY)
-        subtitle_rect = subtitle_text.get_rect(center=(logo_width//2, logo_height//2 + 30))
-        self.logo.blit(subtitle_text, subtitle_rect)
-        
-        print("Text-Logo erstellt als Fallback")
+
     
     def run(self):
         """Zeigt den Loading Screen für 5 Sekunden"""
@@ -1241,15 +1174,6 @@ class LoadingScreen:
             
             # Zeichne Loading Screen
             self.screen.fill(BLACK)
-            
-            # Zentriere das Logo
-            logo_rect = self.logo.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT//2))
-            print(f"Zeichne Logo an Position: {logo_rect}")
-            self.screen.blit(self.logo, logo_rect)
-            
-            # Test: Zeichne auch das Test-Logo
-            test_rect = self.test_logo.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT//2 + 150))
-            self.screen.blit(self.test_logo, test_rect)
             
             # Zeichne Loading-Animation
             self.draw_loading_animation(elapsed_time)
