@@ -4,6 +4,7 @@ import time
 import random
 import math
 import heapq
+import os
 from pygame.locals import *
 from collections import defaultdict
 from languages import TRANSLATIONS
@@ -565,9 +566,9 @@ class CharacterMenu:
         self.character_names = ['Jonas', 'Robert', 'Sebastian']
         self.selected_index = 0
         
-        # Menüoptionen erstellen
+        # Menüoptionen erstellen - perfekt zentriert
         self.menu_options = [
-            MenuOption(name, (DISPLAY_WIDTH//2 - 100, DISPLAY_HEIGHT//2 - 60 + i * 60))
+            MenuOption(name, (DISPLAY_WIDTH//2, DISPLAY_HEIGHT//2 - 60 + i * 60))
             for i, name in enumerate(self.character_names)
         ]
         self.menu_options[self.selected_index].is_selected = True
@@ -1145,57 +1146,10 @@ class LoadingScreen:
         self.duration = 5.0  # 5 Sekunden
         self.start_time = None
         
-        # Versuche Weidmüller Logo zu laden
+        # Kein Logo mehr - nur Loading Screen
         self.logo = None
-        try:
-            # Versuche verschiedene mögliche Dateinamen
-            logo_paths = [
-                'images/weidmueller.png',
-                'images/weidmueller_logo.png',
-                'images/logo.png',
-                'assets/weidmueller.png',
-                'assets/weidmueller_logo.png',
-                'assets/logo.png'
-            ]
-            
-            for path in logo_paths:
-                try:
-                    self.logo = pygame.image.load(path)
-                    # Skaliere das Logo auf eine angemessene Größe
-                    logo_width = min(400, DISPLAY_WIDTH - 100)
-                    logo_height = int(logo_width * self.logo.get_height() / self.logo.get_width())
-                    self.logo = pygame.transform.scale(self.logo, (logo_width, logo_height))
-                    print(f"Weidmüller Logo geladen von: {path}")
-                    break
-                except:
-                    continue
-                    
-        except Exception as e:
-            print(f"Konnte Weidmüller Logo nicht laden: {e}")
-            self.logo = None
-        
-        # Fallback: Erstelle ein Text-Logo
-        if self.logo is None:
-            self.create_text_logo()
     
-    def create_text_logo(self):
-        """Erstellt ein Text-Logo als Fallback"""
-        # Erstelle eine Surface für das Text-Logo
-        logo_width = 400
-        logo_height = 200
-        self.logo = pygame.Surface((logo_width, logo_height), pygame.SRCALPHA)
-        
-        # Haupttext: WEIDMÜLLER
-        title_font = pygame.font.Font(None, 72)
-        title_text = title_font.render("WEIDMÜLLER", True, WHITE)
-        title_rect = title_text.get_rect(center=(logo_width//2, logo_height//2 - 20))
-        self.logo.blit(title_text, title_rect)
-        
-        # Untertitel
-        subtitle_font = pygame.font.Font(None, 36)
-        subtitle_text = subtitle_font.render("Escape Game", True, GRAY)
-        subtitle_rect = subtitle_text.get_rect(center=(logo_width//2, logo_height//2 + 30))
-        self.logo.blit(subtitle_text, subtitle_rect)
+
     
     def run(self):
         """Zeigt den Loading Screen für 5 Sekunden"""
@@ -1216,14 +1170,10 @@ class LoadingScreen:
                     sys.exit()
                 elif event.type == KEYDOWN:
                     if event.key == K_ESCAPE:
-                        return  # Beende Loading Screen vorzeitig
+                        return  
             
             # Zeichne Loading Screen
             self.screen.fill(BLACK)
-            
-            # Zentriere das Logo
-            logo_rect = self.logo.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT//2))
-            self.screen.blit(self.logo, logo_rect)
             
             # Zeichne Loading-Animation
             self.draw_loading_animation(elapsed_time)
