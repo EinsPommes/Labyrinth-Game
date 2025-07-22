@@ -44,7 +44,7 @@ DIFFICULTY_SETTINGS = {
         },
         'time_limit': 600,  # 10 Minuten
         'letters': "DETMOLD",
-        'num_bosses': 2  # Weniger Bosse im Easy-Modus
+        'num_bosses': 3  # Immer 3 Bosse: Tom, Jannik, Louis
     },
     'medium': {
         'speeds': {
@@ -55,7 +55,7 @@ DIFFICULTY_SETTINGS = {
         },
         'time_limit': 420,  # 7 Minuten
         'letters': "DETMOLD",
-        'num_bosses': 3  # Mittlere Anzahl Bosse
+        'num_bosses': 3  # Immer 3 Bosse: Tom, Jannik, Louis
     },
     'hard': {
         'speeds': {
@@ -66,7 +66,7 @@ DIFFICULTY_SETTINGS = {
         },
         'time_limit': 300,  # 5 Minuten
         'letters': "DETMOLD",
-        'num_bosses': 4  # Alle Bosse im Hard-Modus
+        'num_bosses': 3  # Immer 3 Bosse: Tom, Jannik, Louis
     }
 }
 
@@ -718,12 +718,10 @@ def create_bosses(difficulty, boss_images):
         (1 * CELL_SIZE, 1 * CELL_SIZE)     # Oben links
     ]
     
-    # Definiere die Boss-Konfigurationen
-    boss_configs = [
-        {'name': 'Schneller Boss', 'speed': boss_speeds['fastest'], 'image': boss_images['red'], 'spawn_time': 1},
-        {'name': 'Normaler Boss', 'speed': boss_speeds['normal'], 'image': boss_images['blue'], 'spawn_time': 5},
-        {'name': 'Schneller Boss 2', 'speed': boss_speeds['faster'], 'image': boss_images['green'], 'spawn_time': 15},
-        {'name': 'Schneller Boss 3', 'speed': boss_speeds['fast'], 'image': boss_images['purple'], 'spawn_time': 30}
+    
+        {'name': 'Louis', 'speed': boss_speeds['fastest'], 'image': boss_images['red'], 'spawn_time': 1},
+        {'name': 'Jannik', 'speed': boss_speeds['normal'], 'image': boss_images['blue'], 'spawn_time': 10},
+        {'name': 'Tom', 'speed': boss_speeds['faster'], 'image': boss_images['green'], 'spawn_time': 20}
     ]
     
     # Erstelle die ausgewählte Anzahl an Bossen
