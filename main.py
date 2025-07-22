@@ -1151,12 +1151,8 @@ class LoadingScreen:
         try:
             # Versuche verschiedene mögliche Dateinamen
             logo_paths = [
-                'images/weidmueller_logo.png',
-                'images/weidmueller.png',
-                'images/logo.png',
-                'assets/weidmueller.png',
-                'assets/weidmueller_logo.png',
-                'assets/logo.png'
+                'images/weidmueller_logo.png'
+
             ]
             
             for path in logo_paths:
@@ -1165,11 +1161,14 @@ class LoadingScreen:
                     if os.path.exists(path):
                         print(f"Datei existiert: {path}")
                         self.logo = pygame.image.load(path)
+                        # Konvertiere zu RGBA für bessere Kompatibilität
+                        self.logo = self.logo.convert_alpha()
                         # Skaliere das Logo auf eine angemessene Größe
                         logo_width = min(400, DISPLAY_WIDTH - 100)
                         logo_height = int(logo_width * self.logo.get_height() / self.logo.get_width())
                         self.logo = pygame.transform.scale(self.logo, (logo_width, logo_height))
                         print(f"Weidmüller Logo erfolgreich geladen von: {path}")
+                        print(f"Logo-Größe: {self.logo.get_width()}x{self.logo.get_height()}")
                         break
                     else:
                         print(f"Datei existiert nicht: {path}")
@@ -1187,6 +1186,16 @@ class LoadingScreen:
             self.create_text_logo()
         else:
             print("Logo erfolgreich geladen!")
+        
+        # Test: Erstelle ein einfaches Test-Logo
+        print("Erstelle Test-Logo...")
+        test_logo = pygame.Surface((200, 100))
+        test_logo.fill(RED)
+        test_font = pygame.font.Font(None, 36)
+        test_text = test_font.render("TEST", True, WHITE)
+        test_rect = test_text.get_rect(center=(100, 50))
+        test_logo.blit(test_text, test_rect)
+        self.test_logo = test_logo
     
     def create_text_logo(self):
         """Erstellt ein Text-Logo als Fallback"""
@@ -1194,9 +1203,6 @@ class LoadingScreen:
         logo_width = 400
         logo_height = 200
         self.logo = pygame.Surface((logo_width, logo_height), pygame.SRCALPHA)
-        
-        # Zeichne einen blauen Rahmen
-        pygame.draw.rect(self.logo, BLUE, (0, 0, logo_width, logo_height), 3)
         
         # Haupttext: WEIDMÜLLER
         title_font = pygame.font.Font(None, 72)
@@ -1231,14 +1237,19 @@ class LoadingScreen:
                     sys.exit()
                 elif event.type == KEYDOWN:
                     if event.key == K_ESCAPE:
-                        return  # Beende Loading Screen vorzeitig
+                        return  
             
             # Zeichne Loading Screen
             self.screen.fill(BLACK)
             
             # Zentriere das Logo
             logo_rect = self.logo.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT//2))
+            print(f"Zeichne Logo an Position: {logo_rect}")
             self.screen.blit(self.logo, logo_rect)
+            
+            # Test: Zeichne auch das Test-Logo
+            test_rect = self.test_logo.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT//2 + 150))
+            self.screen.blit(self.test_logo, test_rect)
             
             # Zeichne Loading-Animation
             self.draw_loading_animation(elapsed_time)
