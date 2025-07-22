@@ -384,7 +384,7 @@ class Letter:
         self.collected = False
         self.rect = pygame.Rect(x, y, LETTER_SIZE, LETTER_SIZE)
         
-        # Erstelle die Textoberfläche
+        
         self.text_surface = self.font.render(letter, True, WHITE)
         self.text_rect = self.text_surface.get_rect(center=(x + LETTER_SIZE//2, y + LETTER_SIZE//2))
 
@@ -393,11 +393,11 @@ class Letter:
             screen.blit(self.text_surface, (self.text_rect.x + GAME_OFFSET_X, self.text_rect.y + GAME_OFFSET_Y))
 
 class CollectionDisplay:
-    def __init__(self, language):
+    def __init__(self, language, difficulty):
         self.font = pygame.font.Font(None, 36)
         self.language = language
         self.collected_letters = []
-        self.target_word = DIFFICULTY_SETTINGS['easy']['letters']
+        self.target_word = DIFFICULTY_SETTINGS[difficulty]['letters']
         self.letter_positions = {}
         self.hint_font = pygame.font.Font(None, 24)
         self.collected_positions = set()  # Neue Variable für gesammelte Positionen
@@ -940,11 +940,12 @@ def draw_game(screen, walls, paths, player, bosses, letters, collection_display,
         # Apply the fog of war
         screen.blit(vision_surface, (0, 0))
     
-    # Draw difficulty text
+    # Draw game title instead of difficulty
     font = pygame.font.Font(None, 36)
-    difficulty_text = font.render(f"{TRANSLATIONS[language][difficulty]}", True, WHITE)
-    difficulty_rect = difficulty_text.get_rect(bottomleft=(20, DISPLAY_HEIGHT - 20))
-    screen.blit(difficulty_text, difficulty_rect)
+    title_text = "Weidmüller Escape Game"
+    title_surface = font.render(title_text, True, WHITE)
+    title_rect = title_surface.get_rect(bottomleft=(20, DISPLAY_HEIGHT - 20))
+    screen.blit(title_surface, title_rect)
     
     if game_over:
         # Draw semi-transparent overlay
@@ -981,7 +982,7 @@ def play_game(screen, game_surface, clock, difficulty, player_image, boss_images
     player = Player(CELL_SIZE, CELL_SIZE, player_image)
     bosses = create_bosses(difficulty, boss_images)
     letters = create_letters(difficulty)
-    collection_display = CollectionDisplay(language)
+    collection_display = CollectionDisplay(language, difficulty)
     timer = Timer(DIFFICULTY_SETTINGS[difficulty]['time_limit'])
     
     game_over = False
@@ -1045,104 +1046,33 @@ def play_game(screen, game_surface, clock, difficulty, player_image, boss_images
     
     return game_over_reason
 
-def show_menu(screen, clock, language):
-    difficulties = ['easy', 'medium', 'hard']
-    selected_index = 0
-    
-    # Controller Setup
-    joysticks = [pygame.joystick.Joystick(i) for i in range(pygame.joystick.get_count())]
-    for joystick in joysticks:
-        joystick.init()
-    
-    # Zeitverzögerung für Joystick-Eingaben
-    last_joy_time = 0
-    joy_delay = 200  # Millisekunden
-    
-    while True:
-        current_time = pygame.time.get_ticks()
-        
-        for event in pygame.event.get():
-            if event.type == QUIT:
-                pygame.quit()
-                sys.exit()
-            
-            # Tastatureingaben
-            if event.type == KEYDOWN:
-                if event.key == K_UP:
-                    selected_index = (selected_index - 1) % len(difficulties)
-                elif event.key == K_DOWN:
-                    selected_index = (selected_index + 1) % len(difficulties)
-                elif event.key in (K_RETURN, K_SPACE):
-                    return difficulties[selected_index]
-            
-            # Controller-Eingaben
-            elif event.type == JOYBUTTONDOWN:
-                if event.button == 0:  # X-Button (PS4)
-                    return difficulties[selected_index]
-            elif event.type == JOYAXISMOTION:
-                if current_time - last_joy_time > joy_delay:
-                    if event.axis == 1:  # Vertikale Achse
-                        if event.value > 0.5:  # Nach unten
-                            selected_index = (selected_index + 1) % len(difficulties)
-                            last_joy_time = current_time
-                        elif event.value < -0.5:  # Nach oben
-                            selected_index = (selected_index - 1) % len(difficulties)
-                            last_joy_time = current_time
-            elif event.type == JOYHATMOTION:
-                if current_time - last_joy_time > joy_delay:
-                    hat = event.value
-                    if hat[1] == 1:  # Nach oben
-                        selected_index = (selected_index - 1) % len(difficulties)
-                        last_joy_time = current_time
-                    elif hat[1] == -1:  # Nach unten
-                        selected_index = (selected_index + 1) % len(difficulties)
-                        last_joy_time = current_time
-        
-        screen.fill(BLACK)
-        
-        # Titel
-        title_font = pygame.font.Font(None, 74)
-        title = title_font.render(TRANSLATIONS[language]['select_difficulty'], True, WHITE)
-        title_rect = title.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT//4))
-        screen.blit(title, title_rect)
-        
-        # Schwierigkeitsgrade
-        for i, diff in enumerate(difficulties):
-            color = WHITE if i == selected_index else GRAY
-            text = pygame.font.Font(None, 48).render(TRANSLATIONS[language][diff], True, color)
-            rect = text.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT//2 + i * 60))
-            
-            if i == selected_index:
-                pygame.draw.rect(screen, color, rect.inflate(20, 10), 2)
-            
-            screen.blit(text, rect)
-        
-        # Steuerungshinweise
-        hint_font = pygame.font.Font(None, 36)
-        keyboard_hint = hint_font.render(TRANSLATIONS[language]['press_to_select'], True, GRAY)
-        controller_hint = hint_font.render(TRANSLATIONS[language]['press_x_to_select'], True, GRAY)
-        
-        keyboard_rect = keyboard_hint.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT * 3//4))
-        controller_rect = controller_hint.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT * 3//4 + 40))
-        
-        screen.blit(keyboard_hint, keyboard_rect)
-        screen.blit(controller_hint, controller_rect)
-        
-        pygame.display.flip()
-        clock.tick(60)
+def get_default_difficulty():
+    """Returns the default difficulty setting"""
+    return 'medium'
 
 def show_game_over(screen, clock, game_over_reason, language):
     font = pygame.font.Font(None, 74)
     
-    # Text basierend auf Spielende-Grund
-    if game_over_reason == 'caught':
-        text = TRANSLATIONS[language]['caught_by_boss']
-    elif game_over_reason == 'time_up':
-        text = TRANSLATIONS[language]['time_up']
-    elif game_over_reason == 'win':
-        text = TRANSLATIONS[language]['you_won']
-    else:
-        text = TRANSLATIONS[language]['game_over']
+    # Text basierend auf Spielende-Grund mit Fehlerbehandlung
+    try:
+        if game_over_reason == 'caught':
+            text = TRANSLATIONS[language]['caught_by_boss']
+        elif game_over_reason == 'time_up':
+            text = TRANSLATIONS[language]['time_up']
+        elif game_over_reason == 'win':
+            text = TRANSLATIONS[language]['you_won']
+        else:
+            text = TRANSLATIONS[language]['game_over']
+    except KeyError:
+        # Fallback text if translation is missing
+        if game_over_reason == 'caught':
+            text = "Caught by Boss!"
+        elif game_over_reason == 'time_up':
+            text = "Time is up!"
+        elif game_over_reason == 'win':
+            text = "You Won!"
+        else:
+            text = "Game Over!"
     
     text_surface = font.render(text, True, WHITE)
     text_rect = text_surface.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT//3))
@@ -1151,13 +1081,19 @@ def show_game_over(screen, clock, game_over_reason, language):
     if game_over_reason == 'win':
         # Zeige die Frage
         question_font = pygame.font.Font(None, 48)
-        question_text = TRANSLATIONS[language]['question']
+        try:
+            question_text = TRANSLATIONS[language]['question']
+        except KeyError:
+            question_text = "Where is the headquarters of Weidmüller?"
         question_surface = question_font.render(question_text, True, WHITE)
         question_rect = question_surface.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT//2))
         
         # Zeige "Die Antwort ist:"
         answer_label_font = pygame.font.Font(None, 36)
-        answer_label = TRANSLATIONS[language]['answer']
+        try:
+            answer_label = TRANSLATIONS[language]['answer']
+        except KeyError:
+            answer_label = "The answer is:"
         answer_label_surface = answer_label_font.render(answer_label, True, WHITE)
         answer_label_rect = answer_label_surface.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT//2 + 40))
         
@@ -1169,7 +1105,10 @@ def show_game_over(screen, clock, game_over_reason, language):
     
     # Hinweis zum Neustart
     hint_font = pygame.font.Font(None, 36)
-    hint_text = TRANSLATIONS[language]['press_to_restart']
+    try:
+        hint_text = TRANSLATIONS[language]['press_to_restart']
+    except KeyError:
+        hint_text = "Press ENTER or X button to restart"
     hint_surface = hint_font.render(hint_text, True, GRAY)
     hint_rect = hint_surface.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT * 4//5))
     
@@ -1224,7 +1163,7 @@ def main():
     character = character_menu.run()
     
     while True:  
-        difficulty = show_menu(screen, clock, language)
+        difficulty = get_default_difficulty()  # Verwende feste Schwierigkeit
         
         # Spiel starten
         game_surface = pygame.Surface((DISPLAY_WIDTH, DISPLAY_HEIGHT))
