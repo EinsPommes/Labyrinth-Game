@@ -4,6 +4,7 @@ import time
 import random
 import math
 import heapq
+import os
 from pygame.locals import *
 from collections import defaultdict
 from languages import TRANSLATIONS
@@ -1150,8 +1151,8 @@ class LoadingScreen:
         try:
             # Versuche verschiedene mögliche Dateinamen
             logo_paths = [
-                'images/weidmueller.png',
                 'images/weidmueller_logo.png',
+                'images/weidmueller.png',
                 'images/logo.png',
                 'assets/weidmueller.png',
                 'assets/weidmueller_logo.png',
@@ -1160,14 +1161,20 @@ class LoadingScreen:
             
             for path in logo_paths:
                 try:
-                    self.logo = pygame.image.load(path)
-                    # Skaliere das Logo auf eine angemessene Größe
-                    logo_width = min(400, DISPLAY_WIDTH - 100)
-                    logo_height = int(logo_width * self.logo.get_height() / self.logo.get_width())
-                    self.logo = pygame.transform.scale(self.logo, (logo_width, logo_height))
-                    print(f"Weidmüller Logo geladen von: {path}")
-                    break
-                except:
+                    print(f"Versuche Logo zu laden von: {path}")
+                    if os.path.exists(path):
+                        print(f"Datei existiert: {path}")
+                        self.logo = pygame.image.load(path)
+                        # Skaliere das Logo auf eine angemessene Größe
+                        logo_width = min(400, DISPLAY_WIDTH - 100)
+                        logo_height = int(logo_width * self.logo.get_height() / self.logo.get_width())
+                        self.logo = pygame.transform.scale(self.logo, (logo_width, logo_height))
+                        print(f"Weidmüller Logo erfolgreich geladen von: {path}")
+                        break
+                    else:
+                        print(f"Datei existiert nicht: {path}")
+                except Exception as e:
+                    print(f"Fehler beim Laden von {path}: {e}")
                     continue
                     
         except Exception as e:
@@ -1176,7 +1183,10 @@ class LoadingScreen:
         
         # Fallback: Erstelle ein Text-Logo
         if self.logo is None:
+            print("Kein Logo gefunden, erstelle Text-Logo...")
             self.create_text_logo()
+        else:
+            print("Logo erfolgreich geladen!")
     
     def create_text_logo(self):
         """Erstellt ein Text-Logo als Fallback"""
@@ -1184,6 +1194,9 @@ class LoadingScreen:
         logo_width = 400
         logo_height = 200
         self.logo = pygame.Surface((logo_width, logo_height), pygame.SRCALPHA)
+        
+        # Zeichne einen blauen Rahmen
+        pygame.draw.rect(self.logo, BLUE, (0, 0, logo_width, logo_height), 3)
         
         # Haupttext: WEIDMÜLLER
         title_font = pygame.font.Font(None, 72)
@@ -1196,6 +1209,8 @@ class LoadingScreen:
         subtitle_text = subtitle_font.render("Escape Game", True, GRAY)
         subtitle_rect = subtitle_text.get_rect(center=(logo_width//2, logo_height//2 + 30))
         self.logo.blit(subtitle_text, subtitle_rect)
+        
+        print("Text-Logo erstellt als Fallback")
     
     def run(self):
         """Zeigt den Loading Screen für 5 Sekunden"""
