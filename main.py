@@ -469,6 +469,7 @@ class LanguageMenu:
         pygame.joystick.init()
         self.joysticks = [pygame.joystick.Joystick(i) for i in range(pygame.joystick.get_count())]
         for joystick in self.joysticks:
+            
             joystick.init()
         
         # Zeitverzögerung für Joystick-Eingaben
@@ -1137,6 +1138,136 @@ def show_game_over(screen, clock, game_over_reason, language):
         pygame.display.flip()
         clock.tick(60)
 
+class LoadingScreen:
+    def __init__(self, screen, clock):
+        self.screen = screen
+        self.clock = clock
+        self.duration = 5.0  # 5 Sekunden
+        self.start_time = None
+        
+        # Versuche Weidmüller Logo zu laden
+        self.logo = None
+        try:
+            # Versuche verschiedene mögliche Dateinamen
+            logo_paths = [
+                'images/weidmueller.png',
+                'images/weidmueller_logo.png',
+                'images/logo.png',
+                'assets/weidmueller.png',
+                'assets/weidmueller_logo.png',
+                'assets/logo.png'
+            ]
+            
+            for path in logo_paths:
+                try:
+                    self.logo = pygame.image.load(path)
+                    # Skaliere das Logo auf eine angemessene Größe
+                    logo_width = min(400, DISPLAY_WIDTH - 100)
+                    logo_height = int(logo_width * self.logo.get_height() / self.logo.get_width())
+                    self.logo = pygame.transform.scale(self.logo, (logo_width, logo_height))
+                    print(f"Weidmüller Logo geladen von: {path}")
+                    break
+                except:
+                    continue
+                    
+        except Exception as e:
+            print(f"Konnte Weidmüller Logo nicht laden: {e}")
+            self.logo = None
+        
+        # Fallback: Erstelle ein Text-Logo
+        if self.logo is None:
+            self.create_text_logo()
+    
+    def create_text_logo(self):
+        """Erstellt ein Text-Logo als Fallback"""
+        # Erstelle eine Surface für das Text-Logo
+        logo_width = 400
+        logo_height = 200
+        self.logo = pygame.Surface((logo_width, logo_height), pygame.SRCALPHA)
+        
+        # Haupttext: WEIDMÜLLER
+        title_font = pygame.font.Font(None, 72)
+        title_text = title_font.render("WEIDMÜLLER", True, WHITE)
+        title_rect = title_text.get_rect(center=(logo_width//2, logo_height//2 - 20))
+        self.logo.blit(title_text, title_rect)
+        
+        # Untertitel
+        subtitle_font = pygame.font.Font(None, 36)
+        subtitle_text = subtitle_font.render("Escape Game", True, GRAY)
+        subtitle_rect = subtitle_text.get_rect(center=(logo_width//2, logo_height//2 + 30))
+        self.logo.blit(subtitle_text, subtitle_rect)
+    
+    def run(self):
+        """Zeigt den Loading Screen für 5 Sekunden"""
+        self.start_time = time.time()
+        
+        while True:
+            current_time = time.time()
+            elapsed_time = current_time - self.start_time
+            
+            # Prüfe ob 5 Sekunden vergangen sind
+            if elapsed_time >= self.duration:
+                break
+            
+            # Event-Handling
+            for event in pygame.event.get():
+                if event.type == QUIT:
+                    pygame.quit()
+                    sys.exit()
+                elif event.type == KEYDOWN:
+                    if event.key == K_ESCAPE:
+                        return  # Beende Loading Screen vorzeitig
+            
+            # Zeichne Loading Screen
+            self.screen.fill(BLACK)
+            
+            # Zentriere das Logo
+            logo_rect = self.logo.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT//2))
+            self.screen.blit(self.logo, logo_rect)
+            
+            # Zeichne Loading-Animation
+            self.draw_loading_animation(elapsed_time)
+            
+            # Zeichne "Loading..." Text
+            loading_font = pygame.font.Font(None, 48)
+            loading_text = loading_font.render("Loading...", True, WHITE)
+            loading_rect = loading_text.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT//2 + 150))
+            self.screen.blit(loading_text, loading_rect)
+            
+            # Zeichne verbleibende Zeit
+            remaining_time = max(0, self.duration - elapsed_time)
+            time_font = pygame.font.Font(None, 36)
+            time_text = time_font.render(f"{remaining_time:.1f}s", True, GRAY)
+            time_rect = time_text.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT//2 + 200))
+            self.screen.blit(time_text, time_rect)
+            
+            pygame.display.flip()
+            self.clock.tick(60)
+    
+    def draw_loading_animation(self, elapsed_time):
+        """Zeichnet eine einfache Loading-Animation"""
+        # Erstelle animierte Punkte
+        num_dots = 3
+        dot_radius = 8
+        spacing = 30
+        total_width = (num_dots - 1) * spacing
+        start_x = DISPLAY_WIDTH//2 - total_width//2
+        
+        for i in range(num_dots):
+            # Berechne Animation basierend auf Zeit
+            animation_offset = (elapsed_time * 2 + i * 0.5) % 2
+            alpha = int(128 + 127 * math.sin(animation_offset * math.pi))
+            
+            # Erstelle eine Surface für den animierten Punkt
+            dot_surface = pygame.Surface((dot_radius * 2, dot_radius * 2), pygame.SRCALPHA)
+            pygame.draw.circle(dot_surface, (255, 255, 255, alpha), (dot_radius, dot_radius), dot_radius)
+            
+            # Position des Punktes
+            x = start_x + i * spacing
+            y = DISPLAY_HEIGHT//2 + 100
+            
+            self.screen.blit(dot_surface, (x - dot_radius, y - dot_radius))
+
 def main():
     pygame.init()
     pygame.joystick.init()
@@ -1161,6 +1292,10 @@ def main():
     character_menu = CharacterMenu(screen, clock, language)
     character = character_menu.run()
     
+    # Loading Screen anzeigen
+    loading_screen = LoadingScreen(screen, clock)
+    loading_screen.run()
+
     while True:  
         difficulty = get_default_difficulty()  # Verwende feste Schwierigkeit
         
