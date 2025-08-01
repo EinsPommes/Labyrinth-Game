@@ -898,7 +898,20 @@ def draw_game(screen, walls, paths, player, bosses, letters, collection_display,
            abs(path_grid_y - player_grid_y) <= VISION_RADIUS:
             screen.blit(path_img, (path['pos'][0] + GAME_OFFSET_X, path['pos'][1] + GAME_OFFSET_Y))
     
-    # Draw visible letters
+    # Draw player
+    player.draw(screen)
+    
+    # Draw active bosses (only within vision radius)
+    for boss in bosses:
+        if boss.active:
+            boss_grid_x = boss.x // CELL_SIZE
+            boss_grid_y = boss.y // CELL_SIZE
+            
+            if abs(boss_grid_x - player_grid_x) <= VISION_RADIUS and \
+               abs(boss_grid_y - player_grid_y) <= VISION_RADIUS:
+                boss.draw(screen)
+    
+    # Draw visible letters (only within vision radius)
     for letter in letters:
         letter_grid_x = letter['x'] // CELL_SIZE
         letter_grid_y = letter['y'] // CELL_SIZE
@@ -911,14 +924,6 @@ def draw_game(screen, walls, paths, player, bosses, letters, collection_display,
             letter_text_rect = letter_text.get_rect(center=letter_rect.center)
             screen.blit(letter_text, letter_text_rect)
     
-    # Draw player
-    player.draw(screen)
-    
-    # Draw active bosses
-    for boss in bosses:
-        if boss.active:
-            boss.draw(screen)
-    
     # Draw collection display
     collection_display.draw(screen)
     
@@ -926,10 +931,10 @@ def draw_game(screen, walls, paths, player, bosses, letters, collection_display,
     timer.draw(screen)
     
     if not game_over:
-        # Create circular vision area
+        # Create circular vision area with stronger fog
         vision_radius_px = VISION_RADIUS * CELL_SIZE
         vision_surface = pygame.Surface((DISPLAY_WIDTH, DISPLAY_HEIGHT), pygame.SRCALPHA)
-        vision_surface.fill((0, 0, 0, FOG_ALPHA))  # Semi-transparent black
+        vision_surface.fill((0, 0, 0, 200))  # Stronger fog (200 instead of 100)
         
         # Create a circle mask for the vision
         pygame.draw.circle(vision_surface, (0, 0, 0, 0),
@@ -1102,6 +1107,12 @@ def show_game_over(screen, clock, game_over_reason, language):
         answer_text = "DETMOLD"
         answer_surface = answer_font.render(answer_text, True, YELLOW)
         answer_rect = answer_surface.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT//2 + 80))
+        
+        # Zeige Hinweis zum Durchsuchen des Raums
+        search_hint_font = pygame.font.Font(None, 32)
+        search_hint_text = "Durchsuche den Raum richtig!"
+        search_hint_surface = search_hint_font.render(search_hint_text, True, CYAN)
+        search_hint_rect = search_hint_surface.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT//2 + 120))
     
     # Hinweis zum Neustart
     hint_font = pygame.font.Font(None, 36)
@@ -1133,6 +1144,7 @@ def show_game_over(screen, clock, game_over_reason, language):
             screen.blit(question_surface, question_rect)
             screen.blit(answer_label_surface, answer_label_rect)
             screen.blit(answer_surface, answer_rect)
+            screen.blit(search_hint_surface, search_hint_rect)
         
         screen.blit(hint_surface, hint_rect)
         pygame.display.flip()
