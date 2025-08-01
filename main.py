@@ -1110,7 +1110,7 @@ def show_game_over(screen, clock, game_over_reason, language):
         
         # Zeige Hinweis zum Durchsuchen des Raums
         search_hint_font = pygame.font.Font(None, 32)
-        search_hint_text = "Durchsuche den Raum richtig!"
+        search_hint_text = "Durchsuche alle Räume richtig!"
         search_hint_surface = search_hint_font.render(search_hint_text, True, CYAN)
         search_hint_rect = search_hint_surface.get_rect(center=(DISPLAY_WIDTH//2, DISPLAY_HEIGHT//2 + 120))
     
