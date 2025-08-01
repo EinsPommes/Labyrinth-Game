@@ -116,12 +116,6 @@ class Player:
         self.image = image
         self.last_move_time = time.time()
         self.move_delay = 0.01  # Add slight delay between movements
-        
-        # Cheat code system
-        self.cheat_sequence = []
-        self.cheat_activated = False
-        self.cheat_timeout = 0
-        self.cheat_sequence_timeout = 0
 
     def handle_input(self, walls):
         current_time = time.time()
@@ -141,14 +135,6 @@ class Player:
             dy = -self.speed
         if keys[K_DOWN] or keys[K_s]:
             dy = self.speed
-        
-        # Keyboard cheat code: G + O + D
-        if keys[K_g]:
-            self.add_to_keyboard_cheat('G')
-        elif keys[K_o]:
-            self.add_to_keyboard_cheat('O')
-        elif keys[K_d]:
-            self.add_to_keyboard_cheat('D')
 
         # Controller-Eingaben
         for joystick in [pygame.joystick.Joystick(i) for i in range(pygame.joystick.get_count())]:
@@ -177,33 +163,6 @@ class Player:
             # X-Taste für Interaktion
             if joystick.get_button(0):  # X-Button (PS4)
                 self.interaction_cooldown = 30  # Setzt den Cooldown
-            
-                    # Cheat Code System für PS4 Controller
-        self.handle_cheat_code(joystick)
-    
-    def add_to_keyboard_cheat(self, key):
-        """Add key to keyboard cheat sequence"""
-        current_time = time.time()
-        
-        # Reset sequence if too much time has passed
-        if current_time - self.cheat_sequence_timeout > 3.0:
-            self.cheat_sequence = []
-        
-        if not self.cheat_activated:
-            self.cheat_sequence.append(key)
-            self.cheat_sequence_timeout = current_time
-            
-            # Check for correct sequence: G + O + D
-            correct_sequence = ['G', 'O', 'D']
-            
-            if len(self.cheat_sequence) > len(correct_sequence):
-                self.cheat_sequence = self.cheat_sequence[-len(correct_sequence):]
-            
-            if self.cheat_sequence == correct_sequence:
-                self.cheat_activated = True
-                self.cheat_timeout = current_time
-                print("KEYBOARD CHEAT ACTIVATED! God mode enabled for 10 seconds!")
-                self.cheat_sequence = []
         
         if dx != 0 or dy != 0:
             self.move(dx, dy, walls)
@@ -233,89 +192,10 @@ class Player:
             self.visual_rect.x = new_x
             self.visual_rect.y = new_y
 
-    def handle_cheat_code(self, joystick):
-        """Handle PS4 Controller cheat code: L1 + R1 + Triangle + Circle + Square + X"""
-        current_time = time.time()
-        
-        # Reset sequence if too much time has passed
-        if current_time - self.cheat_sequence_timeout > 3.0:  # 3 seconds timeout
-            self.cheat_sequence = []
-        
-        # Check for button presses with correct PS4 mappings
-        button_pressed = False
-        
-        # PS4 Controller Button Mappings:
-        # Button 0: X, Button 1: Circle, Button 2: Square, Button 3: Triangle
-        # Button 4: L1, Button 5: R1, Button 6: L2, Button 7: R2
-        
-        if joystick.get_button(4):  # L1
-            self.add_to_cheat_sequence('L1', current_time)
-            button_pressed = True
-        elif joystick.get_button(5):  # R1
-            self.add_to_cheat_sequence('R1', current_time)
-            button_pressed = True
-        elif joystick.get_button(3):  # Triangle
-            self.add_to_cheat_sequence('Triangle', current_time)
-            button_pressed = True
-        elif joystick.get_button(1):  # Circle
-            self.add_to_cheat_sequence('Circle', current_time)
-            button_pressed = True
-        elif joystick.get_button(2):  # Square
-            self.add_to_cheat_sequence('Square', current_time)
-            button_pressed = True
-        elif joystick.get_button(0):  # X
-            self.add_to_cheat_sequence('X', current_time)
-            button_pressed = True
-        
-        # Debug: Show current sequence
-        if button_pressed and len(self.cheat_sequence) > 0:
-            print(f"Cheat sequence: {self.cheat_sequence}")
-        
-        # Check if cheat is activated
-        if self.cheat_activated and current_time - self.cheat_timeout > 10.0:  # 10 seconds duration
-            self.cheat_activated = False
-            print("Cheat deactivated")
-    
-    def add_to_cheat_sequence(self, button, current_time):
-        """Add button to cheat sequence"""
-        if not self.cheat_activated:  # Only allow new sequence if cheat is not active
-            self.cheat_sequence.append(button)
-            self.cheat_sequence_timeout = current_time
-            
-            # Check for correct sequence: L1 + R1 + Triangle + Circle + Square + X
-            correct_sequence = ['L1', 'R1', 'Triangle', 'Circle', 'Square', 'X']
-            
-            if len(self.cheat_sequence) > len(correct_sequence):
-                self.cheat_sequence = self.cheat_sequence[-len(correct_sequence):]
-            
-            if self.cheat_sequence == correct_sequence:
-                self.cheat_activated = True
-                self.cheat_timeout = current_time
-                print("CHEAT ACTIVATED! God mode enabled for 10 seconds!")
-                self.cheat_sequence = []  # Reset sequence
-
     def draw(self, screen):
         screen.blit(self.image, (self.visual_rect.x + GAME_OFFSET_X, self.visual_rect.y + GAME_OFFSET_Y))
         # Debug: Draw hitbox in red
         pygame.draw.rect(screen, RED, (self.rect.x + GAME_OFFSET_X, self.rect.y + GAME_OFFSET_Y, self.rect.width, self.rect.height), 1)
-        
-        # Draw cheat indicator
-        if self.cheat_activated:
-            cheat_font = pygame.font.Font(None, 24)
-            cheat_text = cheat_font.render("GOD MODE ACTIVE!", True, YELLOW)
-            cheat_rect = cheat_text.get_rect(center=(DISPLAY_WIDTH // 2, 100))
-            screen.blit(cheat_text, cheat_rect)
-        else:
-            # Show cheat code hints
-            hint_font = pygame.font.Font(None, 18)
-            keyboard_hint = hint_font.render("Keyboard: Press G + O + D", True, GRAY)
-            controller_hint = hint_font.render("Controller: L1 + R1 + Triangle + Circle + Square + X", True, GRAY)
-            
-            keyboard_rect = keyboard_hint.get_rect(center=(DISPLAY_WIDTH // 2, 100))
-            controller_rect = controller_hint.get_rect(center=(DISPLAY_WIDTH // 2, 120))
-            
-            screen.blit(keyboard_hint, keyboard_rect)
-            screen.blit(controller_hint, controller_rect)
 
 class Boss:
     def __init__(self, x, y, name, speed, image, spawn_time, difficulty='medium'):
@@ -1131,8 +1011,8 @@ def play_game(screen, game_surface, clock, difficulty, player_image, boss_images
             if current_time >= boss.spawn_time:
                 boss.update(player, walls)
                 
-                # Check for collision with boss (skip if cheat is active)
-                if boss.rect.colliderect(player.rect) and not player.cheat_activated:
+                # Check for collision with boss
+                if boss.rect.colliderect(player.rect):
                     game_over = True
                     game_over_reason = 'caught'
                     break
