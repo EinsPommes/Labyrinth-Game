@@ -135,6 +135,12 @@ class Player:
             dy = -self.speed
         if keys[K_DOWN] or keys[K_s]:
             dy = self.speed
+        
+        # Normalize diagonal movement for consistent speed
+        if dx != 0 and dy != 0:
+            # Diagonal movement should not be faster
+            dx = dx * 0.707  # 1/sqrt(2)
+            dy = dy * 0.707
 
         # Controller-Eingaben
         for joystick in [pygame.joystick.Joystick(i) for i in range(pygame.joystick.get_count())]:
@@ -148,6 +154,12 @@ class Player:
                 dx = self.speed * x_axis
             if abs(y_axis) > deadzone:
                 dy = self.speed * y_axis
+            
+            # Normalize diagonal movement for controller too
+            if abs(x_axis) > deadzone and abs(y_axis) > deadzone:
+                # Diagonal movement should not be faster
+                dx = dx * 0.707
+                dy = dy * 0.707
                 
             # D-Pad
             hat = joystick.get_hat(0)
@@ -167,30 +179,47 @@ class Player:
         if dx != 0 or dy != 0:
             self.move(dx, dy, walls)
             self.last_move_time = current_time
+        else:
+            # Small delay when not moving to prevent stuttering
+            self.last_move_time = current_time - self.move_delay * 0.5
 
     def move(self, dx, dy, walls):
-        # Move at constant speed
-        new_x = self.x + dx
-        new_y = self.y + dy
-        
-        # Update both visual and hitbox rectangles
+        # Smooth movement with wall sliding
         hitbox_size = int(PLAYER_SIZE * 0.4)
         hitbox_offset = (PLAYER_SIZE - hitbox_size) // 2
-        temp_rect = pygame.Rect(new_x + hitbox_offset, new_y + hitbox_offset, hitbox_size, hitbox_size)
         
-        can_move = True
+        # Try to move in X direction first
+        new_x = self.x + dx
+        new_y = self.y
+        temp_rect_x = pygame.Rect(new_x + hitbox_offset, new_y + hitbox_offset, hitbox_size, hitbox_size)
+        
+        can_move_x = True
         for wall in walls:
-            if temp_rect.colliderect(wall['rect']):
-                can_move = False
+            if temp_rect_x.colliderect(wall['rect']):
+                can_move_x = False
                 break
         
-        if can_move:
-            self.x = new_x
-            self.y = new_y
-            self.rect.x = new_x + hitbox_offset
-            self.rect.y = new_y + hitbox_offset
-            self.visual_rect.x = new_x
-            self.visual_rect.y = new_y
+        # Try to move in Y direction
+        new_x = self.x
+        new_y = self.y + dy
+        temp_rect_y = pygame.Rect(new_x + hitbox_offset, new_y + hitbox_offset, hitbox_size, hitbox_size)
+        
+        can_move_y = True
+        for wall in walls:
+            if temp_rect_y.colliderect(wall['rect']):
+                can_move_y = False
+                break
+        
+        # Apply movement - allow sliding along walls
+        if can_move_x:
+            self.x = self.x + dx
+            self.rect.x = self.x + hitbox_offset
+            self.visual_rect.x = self.x
+        
+        if can_move_y:
+            self.y = self.y + dy
+            self.rect.y = self.y + hitbox_offset
+            self.visual_rect.y = self.y
 
     def draw(self, screen):
         screen.blit(self.image, (self.visual_rect.x + GAME_OFFSET_X, self.visual_rect.y + GAME_OFFSET_Y))
