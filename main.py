@@ -243,7 +243,7 @@ class Boss:
         self.name_font = pygame.font.Font(None, 20)
         self.path = []
         self.path_update_timer = 0
-        self.path_update_interval = 30  # Update alle 0.5 Sekunden (30 Frames)
+        self.path_update_interval = 15  # Update alle 0.25 Sekunden (15 Frames) für bessere Verfolgung
         self.last_player_pos = None
         self.difficulty = difficulty
         # Zufälliger Offset für das Ziel (1-2 Felder)
@@ -265,7 +265,7 @@ class Boss:
         self.visual_rect.x = self.x
         self.visual_rect.y = self.y
         
-        # Pfad-Update Timer
+        # Pfad-Update Timer - häufiger Updates für bessere Verfolgung
         self.path_update_timer += 1
         if self.path_update_timer >= self.path_update_interval:
             self.path_update_timer = 0
@@ -280,6 +280,10 @@ class Boss:
             self.path = self.find_path_to_player(player, walls)
             # Geschwindigkeit leicht variieren
             self.speed = self.base_speed * random.uniform(0.9, 1.1)
+        
+        # Fallback: Wenn kein Pfad gefunden wurde, verwende direkte Verfolgung
+        if not self.path:
+            self.path = self.get_direct_path_to_player(player)
         
         # Bewegung entlang des Pfades
         if self.path:
@@ -297,22 +301,40 @@ class Boss:
                 new_x = self.x + dx
                 new_y = self.y + dy
                 
-                # Kollisionstest
-                test_rect = pygame.Rect(new_x + self.hitbox_offset, new_y + self.hitbox_offset, 
-                                     self.hitbox_size, self.hitbox_size)
+                # Kollisionstest mit wall sliding wie beim Spieler
+                hitbox_size = int(BOSS_SIZE * 0.6)
+                hitbox_offset = (BOSS_SIZE - hitbox_size) // 2
                 
-                can_move = True
+                # Teste X-Bewegung
+                test_rect_x = pygame.Rect(new_x + hitbox_offset, self.y + hitbox_offset, hitbox_size, hitbox_size)
+                can_move_x = True
                 for wall in walls:
-                    if test_rect.colliderect(wall['rect']):
-                        can_move = False
+                    if test_rect_x.colliderect(wall['rect']):
+                        can_move_x = False
                         break
                 
-                if can_move:
+                # Teste Y-Bewegung
+                test_rect_y = pygame.Rect(self.x + hitbox_offset, new_y + hitbox_offset, hitbox_size, hitbox_size)
+                can_move_y = True
+                for wall in walls:
+                    if test_rect_y.colliderect(wall['rect']):
+                        can_move_y = False
+                        break
+                
+                # Apply movement with wall sliding
+                if can_move_x:
                     self.x = new_x
+                if can_move_y:
                     self.y = new_y
+                
+                # Update rectangles
+                self.rect.x = self.x + hitbox_offset
+                self.rect.y = self.y + hitbox_offset
+                self.visual_rect.x = self.x
+                self.visual_rect.y = self.y
                     
-                # Wegpunkt erreicht?
-                if distance < self.speed * 2:
+                # Wegpunkt erreicht oder zu nah?
+                if distance < self.speed * 3:  # Größerer Toleranzbereich
                     self.path.pop(0)
     
     def find_path_to_player(self, player, walls):
@@ -325,6 +347,11 @@ class Boss:
         
         if start == goal:
             return []
+        
+        # Optimierung: Wenn Ziel zu nah ist, verwende direkte Verfolgung
+        distance_to_goal = abs(goal[0] - start[0]) + abs(goal[1] - start[1])
+        if distance_to_goal <= 3:  # Wenn weniger als 3 Felder entfernt
+            return self.get_direct_path_to_player(player)
             
         # Erstelle Gitter für A*
         grid = [[0 for _ in range(len(MAZE_LAYOUT[0]))] for _ in range(len(MAZE_LAYOUT))]
@@ -334,20 +361,28 @@ class Boss:
             if 0 <= grid_x < len(grid[0]) and 0 <= grid_y < len(grid):
                 grid[grid_y][grid_x] = 1
         
-        # A* Implementierung
+        # A* Implementierung mit verbesserter Heuristik
         frontier = [(0, start)]
         came_from = {start: None}
         cost_so_far = {start: 0}
+        visited = set()
         
-        while frontier:
+        max_iterations = 1000  # Verhindere endlose Schleifen
+        iterations = 0
+        
+        while frontier and iterations < max_iterations:
+            iterations += 1
             current = heapq.heappop(frontier)[1]
+            
+            if current in visited:
+                continue
+            visited.add(current)
             
             if current == goal:
                 break
                 
-            # Nachbarn prüfen (inkl. Diagonalen)
-            neighbors = []
-            for dx, dy in [(0, 1), (1, 0), (0, -1), (-1, 0), (1, 1), (-1, 1), (1, -1), (-1, -1)]:
+            # Nachbarn prüfen (nur orthogonale Richtungen für bessere Performance)
+            for dx, dy in [(0, 1), (1, 0), (0, -1), (-1, 0)]:
                 next_x = current[0] + dx
                 next_y = current[1] + dy
                 
@@ -356,20 +391,17 @@ class Boss:
                     0 <= next_y < len(grid) and 
                     grid[next_y][next_x] == 0):
                     
-                    # Diagonale Bewegung nur erlauben, wenn beide angrenzenden Felder frei sind
-                    if abs(dx) == 1 and abs(dy) == 1:
-                        if grid[current[1]][current[0] + dx] == 1 or grid[current[1] + dy][current[0]] == 1:
-                            continue
-                    
                     next_pos = (next_x, next_y)
-                    # Diagonale Bewegung kostet mehr
-                    movement_cost = 1.4 if (abs(dx) == 1 and abs(dy) == 1) else 1
-                    new_cost = cost_so_far[current] + movement_cost
+                    if next_pos in visited:
+                        continue
+                    
+                    new_cost = cost_so_far[current] + 1
                     
                     if next_pos not in cost_so_far or new_cost < cost_so_far[next_pos]:
                         cost_so_far[next_pos] = new_cost
-                        # Manhattan-Distanz als Heuristik
-                        priority = new_cost + abs(goal[0] - next_x) + abs(goal[1] - next_y)
+                        # Verbesserte Heuristik: Euklidische Distanz
+                        heuristic = math.sqrt((goal[0] - next_x)**2 + (goal[1] - next_y)**2)
+                        priority = new_cost + heuristic
                         heapq.heappush(frontier, (priority, next_pos))
                         came_from[next_pos] = current
         
@@ -384,6 +416,29 @@ class Boss:
         
         path.reverse()
         return path
+    
+    def get_direct_path_to_player(self, player):
+        """Fallback: Direkte Verfolgung wenn A* fehlschlägt"""
+        if not self.last_player_pos:
+            return []
+        
+        # Berechne direkte Richtung zum Spieler
+        dx = self.last_player_pos[0] - self.rect.centerx
+        dy = self.last_player_pos[1] - self.rect.centery
+        
+        # Normalisiere Richtung
+        distance = math.sqrt(dx * dx + dy * dy)
+        if distance > 0:
+            dx = (dx / distance) * CELL_SIZE
+            dy = (dy / distance) * CELL_SIZE
+            
+            # Erstelle einen einfachen Pfad
+            target_x = self.rect.centerx + dx
+            target_y = self.rect.centery + dy
+            
+            return [(target_x, target_y)]
+        
+        return []
 
     def draw(self, screen):
         if not self.active:
