@@ -166,12 +166,17 @@ class Player:
             elif hat[1] == -1: # Unten
                 dy = self.speed
             
-            # X-Taste für Interaktion
+            # X-Taste für Interaktion (Attack)
             if joystick.get_button(0):  # X-Button (PS4)
-                self.interaction_cooldown = 30  # Setzt den Cooldown
+                # This will be handled in the game loop for boss attacks
+                pass
             
-            # Cheat Code System für PS4 Controller
-            self.handle_cheat_code(joystick)
+                    # Cheat Code System für PS4 Controller
+        self.handle_cheat_code(joystick)
+        
+        # Attack system
+        if self.interaction_cooldown > 0:
+            self.interaction_cooldown -= 1
         
         if dx != 0 or dy != 0:
             self.move(dx, dy, walls)
@@ -257,6 +262,25 @@ class Player:
             cheat_text = cheat_font.render("GOD MODE ACTIVE!", True, YELLOW)
             cheat_rect = cheat_text.get_rect(center=(DISPLAY_WIDTH // 2, 100))
             screen.blit(cheat_text, cheat_rect)
+        
+        # Draw attack range indicator
+        attack_range_font = pygame.font.Font(None, 20)
+        attack_text = attack_range_font.render("Press X to attack bosses", True, CYAN)
+        attack_rect = attack_text.get_rect(center=(DISPLAY_WIDTH // 2, 130))
+        screen.blit(attack_text, attack_rect)
+    
+    def attack_boss(self, bosses):
+        """Attack nearby bosses with X button"""
+        if self.interaction_cooldown <= 0:
+            for boss in bosses:
+                if boss.can_be_attacked(self):
+                    if boss.take_damage():
+                        print(f"Successfully defeated {boss.name}!")
+                    else:
+                        print(f"Attacked {boss.name}! Remaining health: {boss.health}")
+                    self.interaction_cooldown = 30  # Attack cooldown
+                    return True
+        return False
 
 class Boss:
     def __init__(self, x, y, name, speed, image, spawn_time, difficulty='medium'):
@@ -283,6 +307,12 @@ class Boss:
             random.randint(-2 * CELL_SIZE, 2 * CELL_SIZE),
             random.randint(-2 * CELL_SIZE, 2 * CELL_SIZE)
         )
+        
+        # Combat system
+        self.defeated = False
+        self.health = 3  # Boss has 3 health points
+        self.attack_cooldown = 0
+        self.attack_range = CELL_SIZE * 1.5  # Attack range
         
     def update(self, player, walls):
         if not self.active and time.time() >= self.spawn_time:
@@ -346,6 +376,34 @@ class Boss:
                 # Wegpunkt erreicht?
                 if distance < self.speed * 2:
                     self.path.pop(0)
+    
+    def can_be_attacked(self, player):
+        """Check if boss is in attack range and can be attacked"""
+        if self.defeated or not self.active:
+            return False
+        
+        # Calculate distance between player and boss
+        player_center_x = player.rect.centerx
+        player_center_y = player.rect.centery
+        boss_center_x = self.rect.centerx
+        boss_center_y = self.rect.centery
+        
+        distance = math.sqrt((player_center_x - boss_center_x)**2 + (player_center_y - boss_center_y)**2)
+        
+        return distance <= self.attack_range
+    
+    def take_damage(self):
+        """Boss takes damage from player attack"""
+        if not self.defeated and self.active:
+            self.health -= 1
+            print(f"Boss {self.name} took damage! Health: {self.health}")
+            
+            if self.health <= 0:
+                self.defeated = True
+                self.active = False
+                print(f"Boss {self.name} defeated!")
+                return True  # Boss was defeated
+        return False  # Boss was not defeated
     
     def find_path_to_player(self, player, walls):
         if not self.last_player_pos:
@@ -418,23 +476,34 @@ class Boss:
         return path
 
     def draw(self, screen):
-        if not self.active:
+        if not self.active and not self.defeated:
             return
             
         # Draw the boss image using visual_rect
-        screen.blit(self.image, (self.visual_rect.x + GAME_OFFSET_X, self.visual_rect.y + GAME_OFFSET_Y))
+        if self.defeated:
+            # Draw defeated boss in gray
+            gray_surface = pygame.Surface((BOSS_SIZE, BOSS_SIZE), pygame.SRCALPHA)
+            gray_surface.fill((128, 128, 128, 128))  # Semi-transparent gray
+            screen.blit(gray_surface, (self.visual_rect.x + GAME_OFFSET_X, self.visual_rect.y + GAME_OFFSET_Y))
+            screen.blit(self.image, (self.visual_rect.x + GAME_OFFSET_X, self.visual_rect.y + GAME_OFFSET_Y))
+        else:
+            screen.blit(self.image, (self.visual_rect.x + GAME_OFFSET_X, self.visual_rect.y + GAME_OFFSET_Y))
         
         # Draw the name above
-        name_text = self.name_font.render(self.name, True, self.image.get_at((0, 0)))
+        if self.defeated:
+            name_text = self.name_font.render(f"{self.name} (DEFEATED)", True, GRAY)
+        else:
+            name_text = self.name_font.render(f"{self.name} (HP: {self.health})", True, self.image.get_at((0, 0)))
         name_rect = name_text.get_rect(centerx=self.visual_rect.centerx + GAME_OFFSET_X, bottom=self.visual_rect.top + GAME_OFFSET_Y - 2)
         screen.blit(name_text, name_rect)
         
         # Debug: Draw hitbox in the boss's color
-        pygame.draw.rect(screen, self.image.get_at((0, 0)), (self.rect.x + GAME_OFFSET_X, self.rect.y + GAME_OFFSET_Y, self.rect.width, self.rect.height), 1)
-        # Debug: Draw center point
-        center_x = self.rect.centerx + GAME_OFFSET_X
-        center_y = self.rect.centery + GAME_OFFSET_Y
-        pygame.draw.circle(screen, self.image.get_at((0, 0)), (center_x, center_y), 2)
+        if not self.defeated:
+            pygame.draw.rect(screen, self.image.get_at((0, 0)), (self.rect.x + GAME_OFFSET_X, self.rect.y + GAME_OFFSET_Y, self.rect.width, self.rect.height), 1)
+            # Debug: Draw center point
+            center_x = self.rect.centerx + GAME_OFFSET_X
+            center_y = self.rect.centery + GAME_OFFSET_Y
+            pygame.draw.circle(screen, self.image.get_at((0, 0)), (center_x, center_y), 2)
 
 class Letter:
     def __init__(self, x, y, letter):
@@ -1066,14 +1135,19 @@ def play_game(screen, game_surface, clock, difficulty, player_image, boss_images
         # Update game state
         player.handle_input(walls)
         
+        # Check for boss attacks (X button)
+        keys = pygame.key.get_pressed()
+        if keys[K_x] or any(joystick.get_button(0) for joystick in [pygame.joystick.Joystick(i) for i in range(pygame.joystick.get_count())]):
+            player.attack_boss(bosses)
+        
         # Update bosses
         current_time = time.time()
         for boss in bosses:
             if current_time >= boss.spawn_time:
                 boss.update(player, walls)
                 
-                # Check for collision with boss (skip if cheat is active)
-                if boss.rect.colliderect(player.rect) and not player.cheat_activated:
+                # Check for collision with boss (skip if cheat is active or boss is defeated)
+                if boss.rect.colliderect(player.rect) and not player.cheat_activated and not boss.defeated:
                     game_over = True
                     game_over_reason = 'caught'
                     break
