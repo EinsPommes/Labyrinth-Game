@@ -13,14 +13,14 @@ from languages import TRANSLATIONS
 pygame.init()
 
 # Constants
-DISPLAY_WIDTH = 800  # Raspberry Pi LCD Auflösung
-DISPLAY_HEIGHT = 480
-CELL_SIZE = 24  # Verkleinert für bessere Darstellung
+DISPLAY_WIDTH = 1920
+DISPLAY_HEIGHT = 1080
+CELL_SIZE = 48
 PLAYER_SIZE = int(CELL_SIZE * 0.8)
 BOSS_SIZE = int(CELL_SIZE * 0.8)
-LETTER_SIZE = 20  # Kleinere Buchstaben
-VISION_RADIUS = 4  # Angepasste Sichtweite
-FOG_ALPHA = 200   # Dunklerer Nebel
+LETTER_SIZE = 32
+VISION_RADIUS = 10
+FOG_ALPHA = 100
 
 # Farben
 WHITE = (255, 255, 255)
