@@ -19,7 +19,7 @@ CELL_SIZE = 48
 PLAYER_SIZE = int(CELL_SIZE * 0.8)
 BOSS_SIZE = int(CELL_SIZE * 0.8)
 LETTER_SIZE = 32
-VISION_RADIUS = 10
+VISION_RADIUS = 6  
 FOG_ALPHA = 100
 
 # Farben
@@ -33,7 +33,6 @@ PURPLE = (255, 0, 255)
 CYAN = (0, 255, 255)
 ORANGE = (255, 165, 0)
 GRAY = (128, 128, 128)
-
 # Difficulty settings
 DIFFICULTY_SETTINGS = {
     'easy': {
@@ -112,7 +111,7 @@ class Player:
         hitbox_offset = (PLAYER_SIZE - hitbox_size) // 2
         self.rect = pygame.Rect(x + hitbox_offset, y + hitbox_offset, hitbox_size, hitbox_size)
         self.visual_rect = pygame.Rect(x, y, PLAYER_SIZE, PLAYER_SIZE)
-        self.speed = 2  # Reduced from 5 to 3
+        self.speed = 4  
         self.interaction_cooldown = 0
         self.image = image
         self.last_move_time = time.time()
